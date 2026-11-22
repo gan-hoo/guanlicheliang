@@ -356,7 +356,14 @@ enum CategoryPalette {
         Color(red: 0.80, green: 0.15, blue: 0.20),
         Color(red: 0.55, green: 0.45, blue: 0.30),
         Color(red: 0.40, green: 0.55, blue: 0.20),
-        Color(red: 0.55, green: 0.55, blue: 0.60)
+        Color(red: 0.55, green: 0.55, blue: 0.60),
+        Color(red: 0.00, green: 0.60, blue: 0.55),
+        Color(red: 0.85, green: 0.70, blue: 0.10),
+        Color(red: 0.75, green: 0.25, blue: 0.85),
+        Color(red: 0.15, green: 0.25, blue: 0.55),
+        Color(red: 1.00, green: 0.45, blue: 0.40),
+        Color(red: 0.55, green: 0.75, blue: 0.15),
+        Color(red: 0.90, green: 0.50, blue: 0.65)
     ]
 
     static let fuelColor = Theme.fuel
@@ -438,6 +445,7 @@ struct MonthlyExpenseChart: View {
                             .cornerRadius(4)
                     }
                     .chartForegroundStyleScale(domain: names, range: colors)
+                    .chartXScale(domain: start...(calendar.date(byAdding: .month, value: 1, to: thisMonth) ?? thisMonth))
                     .chartXAxis {
                         AxisMarks(values: .stride(by: .month, count: 2)) { _ in
                             AxisGridLine()
