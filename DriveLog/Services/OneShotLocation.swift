@@ -67,3 +67,41 @@ enum NearbyPlaces {
         return Array(names.prefix(6))
     }
 }
+
+/// 地点搜索结果
+struct PlaceResult: Identifiable {
+    let id = UUID()
+    let name: String
+    let address: String
+    let coordinate: CLLocationCoordinate2D
+    /// 离当前位置的距离（米），没有当前位置时为 nil
+    let distance: CLLocationDistance?
+}
+
+extension NearbyPlaces {
+    /// 按关键词搜索地点（例如「7eleven」），有当前位置时优先附近、按距离排序
+    static func search(_ query: String, near center: CLLocationCoordinate2D?) async -> [PlaceResult] {
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        request.resultTypes = .pointOfInterest
+        if let center {
+            request.region = MKCoordinateRegion(center: center, latitudinalMeters: 30_000, longitudinalMeters: 30_000)
+        }
+        guard let response = try? await MKLocalSearch(request: request).start() else { return [] }
+        let origin = center.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
+        var results: [PlaceResult] = []
+        for item in response.mapItems {
+            let placemark = item.placemark
+            let coordinate = placemark.coordinate
+            let distance = origin.map { $0.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) }
+            results.append(PlaceResult(name: item.name ?? placemark.name ?? query,
+                                       address: placemark.title ?? "",
+                                       coordinate: coordinate,
+                                       distance: distance))
+        }
+        if origin != nil {
+            results.sort { ($0.distance ?? .greatestFiniteMagnitude) < ($1.distance ?? .greatestFiniteMagnitude) }
+        }
+        return Array(results.prefix(8))
+    }
+}

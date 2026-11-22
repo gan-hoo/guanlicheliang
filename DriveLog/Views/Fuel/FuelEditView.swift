@@ -36,6 +36,9 @@ struct FuelEditView: View {
     @State private var notes = ""
     @State private var editOrder: [Field] = []
     @State private var nearbyStations: [String] = []
+    @State private var searchResults: [PlaceResult] = []
+    @State private var chosenPlaceName: String?
+    @FocusState private var stationFocused: Bool
     @State private var locating = false
     @State private var didLoad = false
     @State private var locator = OneShotLocation()
@@ -99,9 +102,44 @@ struct FuelEditView: View {
                 }
 
                 Section("加油站") {
-                    TextField("加油站名称", text: $stationName)
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField("搜索或输入加油站", text: $stationName)
+                            .focused($stationFocused)
+                            .autocorrectionDisabled()
+                    }
+                    ForEach(searchResults) { place in
+                        Button {
+                            choose(place)
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "mappin.circle.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(.red)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(place.name)
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                    if !place.address.isEmpty {
+                                        Text(place.address)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                                Spacer()
+                                if let distance = place.distance {
+                                    Text(Fmt.distance(distance))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
                     SuggestionChips(suggestions: stationSuggestions) { name in
                         stationName = name
+                        chosenPlaceName = name
                     }
                     HStack {
                         if locating {
@@ -172,6 +210,12 @@ struct FuelEditView: View {
                 }
             }
             .onAppear(perform: loadIfNeeded)
+            .task(id: stationName) {
+                await searchPlaces()
+            }
+            .onChange(of: stationFocused) { _, focused in
+                if !focused { searchResults = [] }
+            }
             .onChange(of: vehicleID) { oldValue, newValue in
                 guard isNew, didLoad, oldValue != newValue else { return }
                 applyVehicleDefaults()
@@ -277,6 +321,38 @@ struct FuelEditView: View {
         if let last = allEntries.first(where: { $0.fuelTypeRaw == vehicle.fuelTypeRaw && $0.pricePerLiter > 0 }) {
             priceText = Fmt.plain(last.pricePerLiter, decimals: 3)
         }
+    }
+
+    // MARK: - 地点搜索
+
+    private func searchPlaces() async {
+        let query = stationName.trimmingCharacters(in: .whitespaces)
+        guard stationFocused, query.count >= 2, query != chosenPlaceName else {
+            searchResults = []
+            return
+        }
+        // 停止输入 0.35 秒后再搜索
+        do {
+            try await Task.sleep(nanoseconds: 350_000_000)
+        } catch {
+            return
+        }
+        var center: CLLocationCoordinate2D?
+        if let latitude, let longitude {
+            center = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        }
+        let results = await NearbyPlaces.search(query, near: center)
+        if Task.isCancelled { return }
+        searchResults = results
+    }
+
+    private func choose(_ place: PlaceResult) {
+        chosenPlaceName = place.name
+        stationName = place.name
+        latitude = place.coordinate.latitude
+        longitude = place.coordinate.longitude
+        searchResults = []
+        stationFocused = false
     }
 
     private func locate() async {
