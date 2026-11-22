@@ -18,8 +18,8 @@ enum Theme {
     /// 首页 START 按钮：比主色柔和的蓝（饱和度更低，不刺眼）
     static let startButton = Color(red: 0.25, green: 0.43, blue: 0.80)
 
-    /// 白色背景上的列表行底色（让分组的圆角边框显示出来）
-    static let rowFill = Color(uiColor: .secondarySystemBackground)
+    /// 可点击的列表行：和 iOS「设置」一样的白色（深色模式自动跟随）
+    static let rowFill = Color(uiColor: .secondarySystemGroupedBackground)
 
     /// 每页第一张玻璃卡片和标题之间的距离
     static let firstCardTopSpacing: CGFloat = 14

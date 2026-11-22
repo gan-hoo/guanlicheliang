@@ -96,10 +96,10 @@ extension View {
     }
 }
 
-/// 页面背景：白色（深色模式下跟随系统为黑色）
+/// 页面背景：和 iOS「设置」一样的浅灰（#F2F2F7，深色模式自动跟随）
 struct AppBackground: View {
     var body: some View {
-        Color(uiColor: .systemBackground)
+        Color(uiColor: .systemGroupedBackground)
             .ignoresSafeArea()
     }
 }
