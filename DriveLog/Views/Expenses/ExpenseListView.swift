@@ -44,7 +44,7 @@ struct ExpenseListView: View {
                             summary
                             MonthlyExpenseChart(expenses: filtered, categories: categories)
                         }
-                        .glassListRow(tint: Theme.money)
+                        .glassListRow()
                     }
 
                     if !upcoming.isEmpty {
@@ -113,15 +113,16 @@ struct ExpenseListView: View {
             }
             .appBackground()
             .navigationTitle("费用")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+            .pageHeader("费用") {
+                HeaderButtonGroup {
                     NavigationLink {
                         StatsView(initialVehicleID: filterVehicleID ?? defaultVehicleID)
                     } label: {
-                        Image(systemName: "chart.pie")
+                        HeaderIcon(systemName: "chart.pie")
                     }
+                    .buttonStyle(.plain)
                 }
-                ToolbarItemGroup(placement: .topBarTrailing) {
+                HeaderButtonGroup {
                     Menu {
                         Picker("车辆", selection: $filterVehicleID) {
                             Text("全部车辆").tag(UUID?.none)
@@ -135,13 +136,14 @@ struct ExpenseListView: View {
                             Label("管理分类", systemImage: "square.grid.2x2")
                         }
                     } label: {
-                        Image(systemName: filterVehicleID == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                        HeaderIcon(systemName: filterVehicleID == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
                     }
                     Button {
                         showAdd = true
                     } label: {
-                        Image(systemName: "plus")
+                        HeaderIcon(systemName: "plus")
                     }
+                    .buttonStyle(.plain)
                     .disabled(vehicles.isEmpty)
                 }
             }

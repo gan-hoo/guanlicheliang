@@ -38,7 +38,7 @@ struct FuelListView: View {
                 } else {
                     Section {
                         summary(analysis)
-                            .glassListRow(tint: Theme.fuel)
+                            .glassListRow()
                     }
 
                     if vehicleEntries.count >= 2 {
@@ -85,9 +85,9 @@ struct FuelListView: View {
             }
             .appBackground()
             .navigationTitle("加油")
-            .toolbar {
+            .pageHeader("加油") {
                 if vehicles.count > 1 {
-                    ToolbarItem(placement: .topBarLeading) {
+                    HeaderButtonGroup {
                         Menu {
                             ForEach(vehicles) { v in
                                 Button {
@@ -103,15 +103,21 @@ struct FuelListView: View {
                         } label: {
                             Label(vehicle?.displayName ?? "车辆", systemImage: "car")
                                 .labelStyle(.titleAndIcon)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.tint)
+                                .lineLimit(1)
+                                .padding(.horizontal, 12)
+                                .frame(height: 44)
                         }
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                HeaderButtonGroup {
                     Button {
                         showAdd = true
                     } label: {
-                        Image(systemName: "plus")
+                        HeaderIcon(systemName: "plus")
                     }
+                    .buttonStyle(.plain)
                     .disabled(vehicles.isEmpty)
                 }
             }

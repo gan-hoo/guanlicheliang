@@ -110,7 +110,7 @@ struct FrostedCardModifier: ViewModifier {
         return content
             .background {
                 ZStack {
-                    shape.fill(.regularMaterial)
+                    shape.fill(.ultraThinMaterial)
                     if let tint {
                         shape.fill(tint.opacity(dark ? 0.10 : 0.07))
                     }

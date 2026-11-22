@@ -20,7 +20,6 @@ enum Fmt {
     static let monthShort = makeFormatter("M月")
     static let yearTitle = makeFormatter("yyyy年")
     static let weekday = makeFormatter("EEE")
-    static let headerDate = makeFormatter("M月d日 EEEE")
     static let fileStamp: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")

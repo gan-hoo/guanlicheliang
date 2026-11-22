@@ -33,8 +33,6 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.spacing) {
-                    header
-
                     PermissionBanner()
 
                     Group {
@@ -86,10 +84,9 @@ struct HomeView: View {
                 .padding(.bottom, 24)
             }
             .scrollIndicators(.hidden)
-            .statusBarBackdrop()
             .background { AppBackground() }
             .navigationTitle("行车记录")
-            .toolbar(.hidden, for: .navigationBar)
+            .pageHeader("行车记录")
             .sensoryFeedback(.impact(weight: .heavy), trigger: recorder.isRecording)
             .sensoryFeedback(.success, trigger: recorder.lastSavedTripID)
             .confirmationDialog("停止记录并保存这段行程？", isPresented: $showStopConfirm, titleVisibility: .visible) {
@@ -102,32 +99,6 @@ struct HomeView: View {
                 VehicleEditView(vehicle: nil)
             }
         }
-    }
-
-    // MARK: - 标题
-
-    private var header: some View {
-        HStack(alignment: .lastTextBaseline) {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(Fmt.headerDate.string(from: Date()))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text("行车记录")
-                    .font(.system(size: 32, weight: .bold))
-            }
-            Spacer()
-            if recorder.isRecording {
-                Label("记录中", systemImage: "record.circle.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Theme.record)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(Theme.record.opacity(0.12)))
-                    .transition(.scale.combined(with: .opacity))
-            }
-        }
-        .padding(.horizontal, 4)
-        .animation(Theme.spring, value: recorder.isRecording)
     }
 
     // MARK: - 没有车辆

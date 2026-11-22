@@ -22,7 +22,7 @@ struct TripListView: View {
             List {
                 Section {
                     summaryHeader
-                        .glassListRow(tint: Theme.accent)
+                        .glassListRow()
                 }
 
                 if recorder.isRecording {
@@ -72,9 +72,9 @@ struct TripListView: View {
             .listStyle(.insetGrouped)
             .appBackground()
             .navigationTitle("行程")
-            .toolbar {
+            .pageHeader("行程") {
                 if vehicles.count > 1 {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    HeaderButtonGroup {
                         Menu {
                             Picker("车辆", selection: $filterVehicleID) {
                                 Text("全部车辆").tag(UUID?.none)
@@ -83,7 +83,7 @@ struct TripListView: View {
                                 }
                             }
                         } label: {
-                            Image(systemName: filterVehicleID == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                            HeaderIcon(systemName: filterVehicleID == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
                         }
                     }
                 }

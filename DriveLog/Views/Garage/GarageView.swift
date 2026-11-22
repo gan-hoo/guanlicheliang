@@ -114,6 +114,7 @@ struct GarageView: View {
             }
             .appBackground()
             .navigationTitle("车辆与设置")
+            .pageHeader("车辆与设置")
             .sheet(isPresented: $showAddVehicle) {
                 VehicleEditView(vehicle: nil)
             }
