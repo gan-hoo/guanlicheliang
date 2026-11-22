@@ -170,7 +170,10 @@ struct VehicleRow: View {
                     Text(vehicle.displayName)
                         .font(.headline)
                     if isCurrent {
-                        Label("当前", systemImage: "checkmark.seal.fill")
+                        HStack(spacing: 3) {
+                            Image(systemName: "checkmark.seal.fill")
+                            Text("当前")
+                        }
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(Theme.altitude)
                             .padding(.horizontal, 7)

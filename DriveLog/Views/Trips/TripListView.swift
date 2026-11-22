@@ -200,7 +200,10 @@ struct TripRow: View {
                     MetricLabel(text: Fmt.speed(trip.maxSpeed), systemImage: "bolt.fill", tint: Theme.maxSpeed)
                 }
                 if let vehicleName {
-                    Label(vehicleName, systemImage: "car.fill")
+                    HStack(spacing: 3) {
+                        Image(systemName: "car.fill")
+                        Text(vehicleName)
+                    }
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(Theme.accent)
                         .padding(.horizontal, 7)
