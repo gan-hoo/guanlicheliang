@@ -22,7 +22,7 @@ struct TripListView: View {
             List {
                 Section {
                     summaryHeader
-                        .glassListRow()
+                        .glassListRow(tint: Theme.accent)
                 }
 
                 if recorder.isRecording {

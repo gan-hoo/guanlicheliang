@@ -38,7 +38,7 @@ struct FuelListView: View {
                 } else {
                     Section {
                         summary(analysis)
-                            .glassListRow()
+                            .glassListRow(tint: Theme.fuel)
                     }
 
                     if vehicleEntries.count >= 2 {
@@ -133,14 +133,24 @@ struct FuelListView: View {
                     Text("平均油耗")
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(analysis.averageEconomy.map { String(format: "%.1f", $0) } ?? "—")
-                            .font(.numeric(44, weight: .bold))
-                            .foregroundStyle(Theme.fuelGradient)
-                            .contentTransition(.numericText())
-                        Text("L/100km")
-                            .font(.headline)
+                    if let economy = analysis.averageEconomy {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(String(format: "%.1f", economy))
+                                .font(.numeric(44, weight: .bold))
+                                .foregroundStyle(Theme.fuelGradient)
+                                .contentTransition(.numericText())
+                            Text("L/100km")
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text("暂无数据")
+                            .font(.title2.weight(.bold))
                             .foregroundStyle(.secondary)
+                            .padding(.top, 4)
+                        Text("记录两次「加满」后自动计算")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
                 }
                 Spacer()

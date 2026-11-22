@@ -44,7 +44,7 @@ struct ExpenseListView: View {
                             summary
                             MonthlyExpenseChart(expenses: filtered, categories: categories)
                         }
-                        .glassListRow()
+                        .glassListRow(tint: Theme.money)
                     }
 
                     if !upcoming.isEmpty {

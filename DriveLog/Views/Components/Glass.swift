@@ -96,6 +96,60 @@ extension View {
     }
 }
 
+/// 列表行里用的「磨砂玻璃」卡片：
+/// 系统 List 会把每行裁剪在行边界内，真正的 Liquid Glass 自带阴影，被裁掉后会出现灰色硬边。
+/// 这里用材质 + 浅色调 + 高光描边做出玻璃质感，不带外阴影。
+struct FrostedCardModifier: ViewModifier {
+    var cornerRadius: CGFloat = 26
+    var tint: Color? = nil
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        let dark = colorScheme == .dark
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return content
+            .background {
+                ZStack {
+                    shape.fill(.regularMaterial)
+                    if let tint {
+                        shape.fill(tint.opacity(dark ? 0.10 : 0.07))
+                    }
+                    shape.fill(LinearGradient(colors: [Color.white.opacity(dark ? 0.06 : 0.45),
+                                                       Color.white.opacity(0)],
+                                              startPoint: .top,
+                                              endPoint: .center))
+                    shape.strokeBorder(LinearGradient(colors: [Color.white.opacity(dark ? 0.28 : 0.9),
+                                                               Color.white.opacity(dark ? 0.06 : 0.25)],
+                                                      startPoint: .top,
+                                                      endPoint: .bottom),
+                                       lineWidth: 1)
+                }
+            }
+    }
+}
+
+extension View {
+    func frostedCard(cornerRadius: CGFloat = 26, tint: Color? = nil) -> some View {
+        modifier(FrostedCardModifier(cornerRadius: cornerRadius, tint: tint))
+    }
+
+    /// 隐藏导航栏的页面：内容滚到状态栏下面时，状态栏区域做模糊处理
+    @ViewBuilder
+    func statusBarBackdrop() -> some View {
+        if #available(iOS 26.0, *) {
+            self.safeAreaBar(edge: .top) {
+                Color.clear.frame(height: 0)
+            }
+        } else {
+            self.safeAreaInset(edge: .top, spacing: 0) {
+                Color.clear
+                    .frame(height: 0)
+                    .background(.ultraThinMaterial, ignoresSafeAreaEdges: .top)
+            }
+        }
+    }
+}
+
 /// 柔和的彩色背景：玻璃需要有内容在后面才看得出折射效果。
 /// 浅色：近白的冷灰底；深色：深海军蓝底，再叠几团模糊的品牌色光斑。
 struct AppBackground: View {

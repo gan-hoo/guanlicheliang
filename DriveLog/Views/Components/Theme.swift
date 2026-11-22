@@ -179,9 +179,11 @@ extension View {
     }
 
     /// 在列表里放一张玻璃卡片（去掉系统行背景）
-    func glassListRow() -> some View {
+    func glassListRow(tint: Color? = nil) -> some View {
         self
-            .card()
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frostedCard(tint: tint)
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
             .listRowSeparator(.hidden)
