@@ -59,6 +59,23 @@ jobs:
           grep -E "warning:" build/xcodebuild.log | grep -v "appintentsmetadataprocessor" | sort -u | head -n 80 || true
           tail -n 3 build/xcodebuild.log
 
+      - name: Verify app bundle
+        run: |
+          APP="build/DerivedData/Build/Products/Release-iphoneos/DriveLog.app"
+          echo "---- Info.plist (selected keys) ----"
+          plutil -p "$APP/Info.plist" | grep -E "CFBundleDisplayName|CFBundleIdentifier|MinimumOSVersion|UIBackgroundModes|\"location\"|UIFileSharingEnabled|LSSupportsOpeningDocumentsInPlace|NSLocationAlways|CFBundleIcon" || true
+          plutil -extract UIBackgroundModes json -o - "$APP/Info.plist" | grep -q location
+          echo "---- App Intents metadata ----"
+          ls "$APP/Metadata.appintents"
+          for intent in StartTripIntent StopTripIntent; do
+            grep -q "$intent" "$APP/Metadata.appintents/extract.actionsdata" && echo "found $intent"
+          done
+          grep -q StartTripIntent "$APP/Metadata.appintents/extract.actionsdata"
+          grep -q StopTripIntent "$APP/Metadata.appintents/extract.actionsdata"
+          echo "---- Assets ----"
+          ls "$APP" | grep -E "Assets.car|AppIcon" || true
+          test -f "$APP/Assets.car"
+
       - name: Package IPA
         run: |
           APP_PATH="build/DerivedData/Build/Products/Release-iphoneos/DriveLog.app"
