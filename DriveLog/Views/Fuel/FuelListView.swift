@@ -87,6 +87,7 @@ struct FuelListView: View {
                 }
                 .listRowBackground(Theme.rowFill)
             }
+            .tabSwitchEffect(.fuel)
             .appBackground()
             .navigationTitle("加油")
             .pageHeader("加油") {

@@ -97,6 +97,7 @@ struct HomeView: View {
             .listSectionSpacing(.custom(Theme.spacing))
             .scrollContentBackground(.hidden)
             .scrollIndicators(.hidden)
+            .tabSwitchEffect(.home)
             .background { AppBackground() }
             .navigationTitle("行车记录")
             .pageHeader("行车记录")

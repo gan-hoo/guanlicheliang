@@ -120,6 +120,7 @@ struct GarageView: View {
                 }
                 .listRowBackground(Theme.rowFill)
             }
+            .tabSwitchEffect(.garage)
             .appBackground()
             .navigationTitle("车辆与设置")
             .pageHeader("车辆与设置")

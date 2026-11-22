@@ -6,20 +6,27 @@ struct RootView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @State private var databaseMessage: String?
+    @State private var selectedTab: AppTab = .home
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             HomeView()
                 .tabItem { Label("首页", systemImage: "speedometer") }
+                .tag(AppTab.home)
             TripListView()
                 .tabItem { Label("行程", systemImage: "map") }
+                .tag(AppTab.trips)
             FuelListView()
                 .tabItem { Label("加油", systemImage: "fuelpump") }
+                .tag(AppTab.fuel)
             ExpenseListView()
                 .tabItem { Label("费用", systemImage: "creditcard") }
+                .tag(AppTab.expenses)
             GarageView()
                 .tabItem { Label("车辆/设置", systemImage: "car.2") }
+                .tag(AppTab.garage)
         }
+        .environment(\.selectedTab, selectedTab)
         .minimizeTabBarOnScroll()
         .tint(Theme.accent)
         .fontDesign(.rounded)

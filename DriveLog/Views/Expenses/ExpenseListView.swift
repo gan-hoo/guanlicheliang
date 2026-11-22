@@ -107,6 +107,8 @@ struct ExpenseListView: View {
                 .listRowBackground(Theme.rowFill)
             }
             .listSectionSpacing(.custom(16))
+            .animation(.easeInOut(duration: 0.25), value: displayMode)
+            .tabSwitchEffect(.expenses)
             .appBackground()
             .navigationTitle("费用")
             .pageHeader("费用") {

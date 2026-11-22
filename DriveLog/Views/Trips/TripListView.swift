@@ -114,6 +114,8 @@ struct TripListView: View {
             }
             .listStyle(.insetGrouped)
             .listSectionSpacing(.custom(16))
+            .animation(.easeInOut(duration: 0.25), value: displayMode)
+            .tabSwitchEffect(.trips)
             .appBackground()
             .navigationTitle("行程")
             .pageHeader("行程") {
