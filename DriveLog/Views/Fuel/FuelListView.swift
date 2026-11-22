@@ -37,8 +37,9 @@ struct FuelListView: View {
                                            description: Text("在「车辆/设置」里添加车辆后即可记录加油。"))
                 } else {
                     Section {
+                    } header: {
                         summary(analysis)
-                            .glassListRow()
+                            .glassListHeader()
                     }
 
                     if vehicleEntries.count >= 2 {

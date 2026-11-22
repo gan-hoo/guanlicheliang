@@ -178,14 +178,14 @@ extension View {
         }
     }
 
-    /// 在列表里放一张玻璃卡片（去掉系统行背景）
-    func glassListRow(tint: Color? = nil) -> some View {
+    /// 在列表顶部放一张真正的液态玻璃卡片。
+    /// 放在分区标题里：列表的行会被裁剪成圆角，会切掉玻璃的阴影；分区标题不会。
+    func glassListHeader() -> some View {
         self
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frostedCard(tint: tint)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
-            .listRowSeparator(.hidden)
+            .foregroundStyle(.primary)
+            .textCase(nil)
+            .card()
+            .padding(.bottom, 4)
+            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
     }
 }

@@ -40,11 +40,12 @@ struct ExpenseListView: View {
                                            description: Text("在「车辆/设置」里添加车辆后即可记录费用。"))
                 } else {
                     Section {
+                    } header: {
                         VStack(alignment: .leading, spacing: 16) {
                             summary
                             MonthlyExpenseChart(expenses: filtered, categories: categories)
                         }
-                        .glassListRow()
+                        .glassListHeader()
                     }
 
                     if !upcoming.isEmpty {

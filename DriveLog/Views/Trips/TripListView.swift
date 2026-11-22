@@ -21,8 +21,9 @@ struct TripListView: View {
         NavigationStack {
             List {
                 Section {
+                } header: {
                     summaryHeader
-                        .glassListRow()
+                        .glassListHeader()
                 }
 
                 if recorder.isRecording {
