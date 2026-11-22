@@ -3,135 +3,195 @@ import SwiftData
 
 struct TripListView: View {
     @Environment(\.modelContext) private var context
-    @ObservedObject private var recorder = TripRecorder.shared
     @Query(sort: \Trip.startDate, order: .reverse) private var trips: [Trip]
     @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
-    @State private var filterVehicleID: UUID?
 
-    private var filteredTrips: [Trip] {
-        guard let filterVehicleID else { return trips }
-        return trips.filter { $0.vehicleID == filterVehicleID }
+    /// 分段控件：全部卡片 / 只看汇总卡
+    enum DisplayMode: String, CaseIterable, Identifiable {
+        case all = "全部"
+        case summary = "汇总"
+        var id: String { rawValue }
     }
 
-    private var monthGroups: [TripMonthGroup] {
-        TripMonthGroup.group(filteredTrips)
+    /// 时间范围筛选
+    enum TimeRange: String, CaseIterable, Identifiable {
+        case all = "全部时间"
+        case thisMonth = "本月"
+        case last3Months = "近 3 个月"
+        case thisYear = "今年"
+        var id: String { rawValue }
+
+        func contains(_ date: Date) -> Bool {
+            let calendar = Calendar.current
+            let now = Date()
+            switch self {
+            case .all:
+                return true
+            case .thisMonth:
+                return calendar.isDate(date, equalTo: now, toGranularity: .month)
+            case .last3Months:
+                guard let start = calendar.date(byAdding: .month, value: -3, to: now) else { return true }
+                return date >= start
+            case .thisYear:
+                return calendar.isDate(date, equalTo: now, toGranularity: .year)
+            }
+        }
+    }
+
+    @State private var displayMode: DisplayMode = .all
+    @State private var filterVehicleID: UUID?
+    @State private var timeRange: TimeRange = .all
+
+    private var filteredTrips: [Trip] {
+        trips.filter { trip in
+            (filterVehicleID == nil || trip.vehicleID == filterVehicleID) && timeRange.contains(trip.startDate)
+        }
+    }
+
+    private var isFiltering: Bool {
+        filterVehicleID != nil || timeRange != .all
+    }
+
+    private var filterDescription: String {
+        let vehicleText = filterVehicleID.flatMap { id in vehicles.first(where: { $0.id == id })?.displayName } ?? "全部车辆"
+        return "\(vehicleText) · \(timeRange.rawValue)"
     }
 
     var body: some View {
+        let shown = filteredTrips
         NavigationStack {
-            List {
-                Group {
-                    Section {
-                    } header: {
-                        summaryHeader
-                            .glassListHeader(topSpacing: Theme.firstCardTopSpacing)
+            ScrollView {
+                VStack(spacing: 16) {
+                    Picker("显示", selection: $displayMode) {
+                        ForEach(DisplayMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
                     }
+                    .pickerStyle(.segmented)
 
-                    if recorder.isRecording {
-                        Section {
-                            HStack {
-                                Image(systemName: "record.circle.fill")
-                                    .foregroundStyle(Theme.record)
-                                    .symbolEffect(.pulse, options: .repeating)
-                                Text("正在记录：\(Fmt.distance(recorder.distance))")
-                                Spacer()
-                                Text("在首页查看")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                    summaryCard(shown)
+
+                    if displayMode == .all {
+                        ForEach(TripMonthGroup.group(shown)) { group in
+                            monthCard(group)
                         }
                     }
 
-                    if filteredTrips.isEmpty {
-                        Section {
-                            ContentUnavailableView("还没有行程",
-                                                   systemImage: "car.rear.road.lane",
-                                                   description: Text("连上 CarPlay 自动记录，或在首页手动开始。"))
-                        }
-                    }
-
-                    ForEach(monthGroups) { group in
-                        Section {
-                            ForEach(group.trips) { trip in
-                                NavigationLink {
-                                    TripDetailView(trip: trip)
-                                } label: {
-                                    TripRow(trip: trip, vehicleName: vehicles.count > 1 ? vehicleName(trip.vehicleID) : nil)
-                                }
-                            }
-                            .onDelete { offsets in
-                                delete(group.trips, at: offsets)
-                            }
-                        } header: {
-                            HStack {
-                                Text(group.title)
-                                Spacer()
-                                Text("\(group.trips.count) 段 · \(Fmt.km(group.distance / 1000))")
-                            }
-                        }
+                    if shown.isEmpty {
+                        Text(isFiltering ? "没有符合筛选条件的行程。" : "还没有行程。连上 CarPlay 会自动记录，也可以在首页手动开始。")
+                            .font(.system(size: 13))
+                            .foregroundStyle(TripSpec.hint)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 8)
                     }
                 }
-                .listRowBackground(Theme.rowFill)
+                .padding(.horizontal, 16)
+                .padding(.top, Theme.firstCardTopSpacing)
+                .padding(.bottom, 24)
             }
-            .listStyle(.insetGrouped)
-            .appBackground()
+            .scrollIndicators(.hidden)
+            .background { AppBackground() }
             .navigationTitle("行程")
             .pageHeader("行程") {
-                if vehicles.count > 1 {
-                    HeaderButtonGroup {
-                        Menu {
-                            Picker("车辆", selection: $filterVehicleID) {
-                                Text("全部车辆").tag(UUID?.none)
-                                ForEach(vehicles) { vehicle in
-                                    Text(vehicle.displayName).tag(UUID?.some(vehicle.id))
-                                }
+                HeaderButtonGroup {
+                    Menu {
+                        Picker("车辆", selection: $filterVehicleID) {
+                            Text("全部车辆").tag(UUID?.none)
+                            ForEach(vehicles) { vehicle in
+                                Text(vehicle.displayName).tag(UUID?.some(vehicle.id))
                             }
-                        } label: {
-                            HeaderIcon(systemName: filterVehicleID == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
                         }
+                        .pickerStyle(.inline)
+                        Picker("时间", selection: $timeRange) {
+                            ForEach(TimeRange.allCases) { range in
+                                Text(range.rawValue).tag(range)
+                            }
+                        }
+                        .pickerStyle(.inline)
+                    } label: {
+                        HeaderIcon(systemName: isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                     }
                 }
             }
+            .fontDesign(.default)
+            .tint(TripSpec.primary)
         }
     }
 
-    private var summaryHeader: some View {
-        let totalDistance = filteredTrips.reduce(0) { $0 + $1.distance }
-        let totalDuration = filteredTrips.reduce(0) { $0 + $1.duration }
-        let calendar = Calendar.current
-        let monthDistance = filteredTrips
-            .filter { calendar.isDate($0.startDate, equalTo: Date(), toGranularity: .month) }
-            .reduce(0) { $0 + $1.distance }
-        return VStack(alignment: .leading, spacing: 12) {
-            Text("累计里程")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(Fmt.number(totalDistance / 1000, decimals: 1))
-                    .font(.numeric(44, weight: .bold))
-                    .foregroundStyle(Theme.brandGradient)
-                    .contentTransition(.numericText())
-                Text("km")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.secondary)
+    // MARK: - 汇总卡
+
+    private func summaryCard(_ shown: [Trip]) -> some View {
+        let count = shown.count
+        let distance = shown.reduce(0) { $0 + $1.distance }
+        let duration = shown.reduce(0) { $0 + $1.duration }
+        let moving = shown.reduce(0) { $0 + $1.movingDuration }
+        let maxSpeed = shown.map(\.maxSpeed).max() ?? 0
+        let averageSpeed = moving > 0 ? distance / moving : 0
+        return TripListCard(icon: "chart.bar.fill", title: "行程汇总", subtitle: filterDescription) {
+            NavigationLink {
+                StatsView(initialVehicleID: filterVehicleID)
+            } label: {
+                TripListRow(icon: "road.lanes",
+                            title: "累计里程",
+                            subtitle: "共 \(count) 段行程",
+                            value: Fmt.km(distance / 1000),
+                            subValue: count > 0 ? "平均每段 \(Fmt.km(distance / 1000 / Double(count)))" : nil)
             }
-            HStack(spacing: 8) {
-                SummaryChip(text: "\(filteredTrips.count) 段", systemImage: "map.fill", tint: Theme.altitude)
-                SummaryChip(text: Fmt.duration(totalDuration), systemImage: "clock.fill", tint: Theme.duration)
-                SummaryChip(text: "本月 \(Fmt.km(monthDistance / 1000))", systemImage: "calendar", tint: Theme.distance)
+            .buttonStyle(.plain)
+            TripListDivider()
+            NavigationLink {
+                StatsView(initialVehicleID: filterVehicleID)
+            } label: {
+                TripListRow(icon: "clock",
+                            title: "总时长",
+                            subtitle: "行驶 \(TripSpecFormat.duration(moving))",
+                            value: TripSpecFormat.duration(duration))
             }
+            .buttonStyle(.plain)
+            TripListDivider()
+            NavigationLink {
+                StatsView(initialVehicleID: filterVehicleID)
+            } label: {
+                TripListRow(icon: "speedometer",
+                            title: "平均速度",
+                            subtitle: "按行驶时间计算",
+                            value: Fmt.speed(averageSpeed),
+                            subValue: "最高 \(Fmt.speed(maxSpeed))")
+            }
+            .buttonStyle(.plain)
         }
-        .animation(.snappy, value: totalDistance)
     }
 
-    private func vehicleName(_ id: UUID?) -> String? {
-        guard let id else { return "未指定车辆" }
-        return vehicles.first(where: { $0.id == id })?.displayName
-    }
+    // MARK: - 月份卡
 
-    private func delete(_ groupTrips: [Trip], at offsets: IndexSet) {
-        for index in offsets {
-            TripService.delete(groupTrips[index], context: context)
+    private func monthCard(_ group: TripMonthGroup) -> some View {
+        TripListCard(icon: "calendar",
+                     title: group.title,
+                     subtitle: "\(group.trips.count) 段 · \(Fmt.km(group.distance / 1000))") {
+            ForEach(Array(group.trips.enumerated()), id: \.element.id) { item in
+                let trip = item.element
+                if item.offset > 0 {
+                    TripListDivider()
+                }
+                NavigationLink {
+                    TripDetailView(trip: trip)
+                } label: {
+                    TripListRow(icon: "car.fill",
+                                title: "\(Fmt.dateShort.string(from: trip.startDate)) \(Fmt.weekday.string(from: trip.startDate)) \(Fmt.time.string(from: trip.startDate))",
+                                subtitle: trip.routeText ?? "均速 \(Fmt.speed(trip.averageMovingSpeed)) · 最高 \(Fmt.speed(trip.maxSpeed))",
+                                value: Fmt.distance(trip.distance),
+                                subValue: TripSpecFormat.duration(trip.duration))
+                }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    Button(role: .destructive) {
+                        TripService.delete(trip, context: context)
+                    } label: {
+                        Label("删除这段行程", systemImage: "trash")
+                    }
+                }
+            }
         }
     }
 }
@@ -213,25 +273,5 @@ struct TripRow: View {
             }
         }
         .padding(.vertical, 3)
-    }
-}
-
-/// 列表头部的小胶囊
-struct SummaryChip: View {
-    let text: String
-    let systemImage: String
-    let tint: Color
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: systemImage)
-                .foregroundStyle(tint)
-            Text(text)
-                .lineLimit(1)
-        }
-        .font(.caption.weight(.medium))
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(tint.opacity(0.12)))
     }
 }
