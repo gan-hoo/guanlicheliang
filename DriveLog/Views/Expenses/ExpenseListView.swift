@@ -18,6 +18,14 @@ struct ExpenseListView: View {
     @State private var editingExpense: Expense?
     @State private var renewingExpense: Expense?
     @State private var showCategories = false
+    @State private var displayMode: DisplayMode = .all
+
+    /// 分段控件：全部卡片 / 只看汇总卡（上面的玻璃卡片）
+    enum DisplayMode: String, CaseIterable, Identifiable {
+        case all = "全部"
+        case summary = "汇总"
+        var id: String { rawValue }
+    }
 
     private var filtered: [Expense] {
         guard let filterVehicleID else { return expenses }
@@ -74,40 +82,23 @@ struct ExpenseListView: View {
                             }
                         }
 
-                        ForEach(monthGroups) { group in
-                            Section {
-                                ForEach(group.items) { expense in
-                                    Button {
-                                        editingExpense = expense
-                                    } label: {
-                                        ExpenseRow(expense: expense,
-                                                   category: categories.first(where: { $0.id == expense.categoryID }),
-                                                   vehicleName: vehicles.count > 1 ? vehicles.first(where: { $0.id == expense.vehicleID })?.displayName : nil)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .swipeActions(edge: .leading) {
-                                        if expense.isRecurring && !expense.renewed {
-                                            Button {
-                                                renewingExpense = expense
-                                            } label: {
-                                                Label("续费", systemImage: "arrow.clockwise")
-                                            }
-                                            .tint(.blue)
-                                        }
-                                    }
+                        Section {
+                        } header: {
+                            Picker("显示", selection: $displayMode) {
+                                ForEach(DisplayMode.allCases) { mode in
+                                    Text(mode.rawValue).tag(mode)
                                 }
-                                .onDelete { offsets in
-                                    for index in offsets {
-                                        context.delete(group.items[index])
-                                    }
-                                    try? context.save()
-                                    ReminderEngine.rescheduleAll(context: context)
-                                }
-                            } header: {
-                                HStack {
-                                    Text(group.title)
-                                    Spacer()
-                                    Text(Fmt.money(group.total))
+                            }
+                            .pickerStyle(.segmented)
+                            .listHeaderContainer()
+                        }
+
+                        if displayMode == .all {
+                            ForEach(monthGroups) { group in
+                                Section {
+                                } header: {
+                                    monthCard(group)
+                                        .listHeaderContainer()
                                 }
                             }
                         }
@@ -115,6 +106,7 @@ struct ExpenseListView: View {
                 }
                 .listRowBackground(Theme.rowFill)
             }
+            .listSectionSpacing(.custom(16))
             .appBackground()
             .navigationTitle("费用")
             .pageHeader("费用") {
@@ -164,6 +156,68 @@ struct ExpenseListView: View {
                 ExpenseEditView(expense: nil, defaultVehicleID: expense.vehicleID, renewing: expense)
             }
         }
+    }
+
+    /// 下面的列表：每个月一张列表卡（和行程页同一套 UI 规范）
+    private func monthCard(_ group: ExpenseMonthGroup) -> some View {
+        TripListCard(icon: "calendar",
+                     title: group.title,
+                     subtitle: "\(group.items.count) 笔 · \(Fmt.money(group.total))") {
+            ForEach(Array(group.items.enumerated()), id: \.element.id) { item in
+                let expense = item.element
+                let category = categories.first(where: { $0.id == expense.categoryID })
+                if item.offset > 0 {
+                    TripListDivider()
+                }
+                Button {
+                    editingExpense = expense
+                } label: {
+                    TripListRow(icon: category?.iconName ?? "questionmark.circle",
+                                title: category?.name ?? "未分类",
+                                subtitle: expenseSubtitle(expense),
+                                value: Fmt.money(expense.amount),
+                                subValue: expenseSubValue(expense))
+                }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    if expense.isRecurring && !expense.renewed {
+                        Button {
+                            renewingExpense = expense
+                        } label: {
+                            Label("续费", systemImage: "arrow.clockwise")
+                        }
+                    }
+                    Button(role: .destructive) {
+                        context.delete(expense)
+                        try? context.save()
+                        ReminderEngine.rescheduleAll(context: context)
+                    } label: {
+                        Label("删除这条费用", systemImage: "trash")
+                    }
+                }
+            }
+        }
+        .fontDesign(.default)
+    }
+
+    /// 日期 · 商家 · 备注
+    private func expenseSubtitle(_ expense: Expense) -> String {
+        var parts = [Fmt.dateShort.string(from: expense.date)]
+        if !expense.merchant.isEmpty { parts.append(expense.merchant) }
+        let note = expense.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !note.isEmpty { parts.append(note) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// 周期性费用显示到期日；多辆车时显示车辆名
+    private func expenseSubValue(_ expense: Expense) -> String? {
+        if expense.isRecurring, let due = expense.dueDate {
+            return expense.renewed ? "已续费" : "到期 \(Fmt.dateShort.string(from: due))"
+        }
+        if vehicles.count > 1 {
+            return vehicles.first(where: { $0.id == expense.vehicleID })?.displayName
+        }
+        return nil
     }
 
     private var summary: some View {
