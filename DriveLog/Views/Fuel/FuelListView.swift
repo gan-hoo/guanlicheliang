@@ -32,57 +32,60 @@ struct FuelListView: View {
         let analysis = FuelEconomy.analyze(entries: vehicleEntries)
         NavigationStack {
             List {
-                if vehicles.isEmpty {
-                    ContentUnavailableView("先添加一辆车", systemImage: "car",
-                                           description: Text("在「车辆/设置」里添加车辆后即可记录加油。"))
-                } else {
-                    Section {
-                    } header: {
-                        summary(analysis)
-                            .glassListHeader()
-                    }
-
-                    if vehicleEntries.count >= 2 {
+                Group {
+                    if vehicles.isEmpty {
+                        ContentUnavailableView("先添加一辆车", systemImage: "car",
+                                               description: Text("在「车辆/设置」里添加车辆后即可记录加油。"))
+                    } else {
                         Section {
-                            Picker("图表", selection: $chartKind) {
-                                Text("油耗走势").tag(0)
-                                Text("油价走势").tag(1)
-                            }
-                            .pickerStyle(.segmented)
-                            if chartKind == 0 {
-                                EconomyTrendChart(segments: analysis.segments, average: analysis.averageEconomy)
-                            } else {
-                                FuelPriceChart(entries: vehicleEntries)
-                            }
+                        } header: {
+                            summary(analysis)
+                                .glassListHeader()
                         }
-                    }
 
-                    Section {
-                        if vehicleEntries.isEmpty {
-                            Text("还没有加油记录，点右上角「+」添加。")
-                                .foregroundStyle(.secondary)
-                        }
-                        ForEach(vehicleEntries) { entry in
-                            Button {
-                                editingEntry = entry
-                            } label: {
-                                FuelRow(entry: entry, economy: analysis.economyByEntryID[entry.id])
+                        if vehicleEntries.count >= 2 {
+                            Section {
+                                Picker("图表", selection: $chartKind) {
+                                    Text("油耗走势").tag(0)
+                                    Text("油价走势").tag(1)
+                                }
+                                .pickerStyle(.segmented)
+                                if chartKind == 0 {
+                                    EconomyTrendChart(segments: analysis.segments, average: analysis.averageEconomy)
+                                } else {
+                                    FuelPriceChart(entries: vehicleEntries)
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
-                        .onDelete { offsets in
-                            let items = vehicleEntries
-                            for index in offsets {
-                                context.delete(items[index])
+
+                        Section {
+                            if vehicleEntries.isEmpty {
+                                Text("还没有加油记录，点右上角「+」添加。")
+                                    .foregroundStyle(.secondary)
                             }
-                            try? context.save()
+                            ForEach(vehicleEntries) { entry in
+                                Button {
+                                    editingEntry = entry
+                                } label: {
+                                    FuelRow(entry: entry, economy: analysis.economyByEntryID[entry.id])
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .onDelete { offsets in
+                                let items = vehicleEntries
+                                for index in offsets {
+                                    context.delete(items[index])
+                                }
+                                try? context.save()
+                            }
+                        } header: {
+                            Text("加油记录")
+                        } footer: {
+                            Text("油耗按「满箱到满箱」计算：两次加满之间的所有加油量 ÷ 这段里程。中间有「上次漏记」的段不计算。")
                         }
-                    } header: {
-                        Text("加油记录")
-                    } footer: {
-                        Text("油耗按「满箱到满箱」计算：两次加满之间的所有加油量 ÷ 这段里程。中间有「上次漏记」的段不计算。")
                     }
                 }
+                .listRowBackground(Theme.rowFill)
             }
             .appBackground()
             .navigationTitle("加油")

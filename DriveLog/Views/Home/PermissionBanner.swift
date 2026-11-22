@@ -8,6 +8,20 @@ struct PermissionBanner: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var notificationStatus: UNAuthorizationStatus = .authorized
 
+    private var hasLocationIssue: Bool {
+        if !recorder.locationServicesEnabled { return true }
+        switch recorder.authorizationStatus {
+        case .notDetermined, .denied, .restricted, .authorizedWhenInUse:
+            return true
+        default:
+            return recorder.accuracyAuthorization == .reducedAccuracy
+        }
+    }
+
+    private var hasContent: Bool {
+        hasLocationIssue || notificationStatus == .denied
+    }
+
     var body: some View {
         VStack(spacing: 12) {
             locationBanner
@@ -23,6 +37,7 @@ struct PermissionBanner: View {
                 }
             }
         }
+        .padding(.bottom, hasContent ? Theme.spacing : 0)
         .task { await refreshNotifications() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {

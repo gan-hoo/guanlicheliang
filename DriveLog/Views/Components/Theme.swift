@@ -15,6 +15,9 @@ enum Theme {
     static let fuel = Color(red: 1.0, green: 0.62, blue: 0.08)
     static let record = Color(red: 0.97, green: 0.22, blue: 0.27)
 
+    /// 白色背景上的列表行底色（让分组的圆角边框显示出来）
+    static let rowFill = Color(uiColor: .secondarySystemBackground)
+
     static let cardRadius: CGFloat = 26
     static let tileRadius: CGFloat = 16
     static let spacing: CGFloat = 14
@@ -182,9 +185,15 @@ extension View {
     /// 放在分区标题里：列表的行会被裁剪成圆角，会切掉玻璃的阴影；分区标题不会。
     func glassListHeader() -> some View {
         self
+            .card()
+            .listHeaderContainer()
+    }
+
+    /// 把已经是玻璃卡片的视图放进分区标题（首页和其他页用同一套布局，位置一致）
+    func listHeaderContainer() -> some View {
+        self
             .foregroundStyle(.primary)
             .textCase(nil)
-            .card()
             .padding(.bottom, 4)
             .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
     }

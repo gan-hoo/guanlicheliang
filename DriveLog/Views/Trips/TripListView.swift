@@ -20,55 +20,58 @@ struct TripListView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                } header: {
-                    summaryHeader
-                        .glassListHeader()
-                }
-
-                if recorder.isRecording {
+                Group {
                     Section {
-                        HStack {
-                            Image(systemName: "record.circle.fill")
-                                .foregroundStyle(Theme.record)
-                                .symbolEffect(.pulse, options: .repeating)
-                            Text("正在记录：\(Fmt.distance(recorder.distance))")
-                            Spacer()
-                            Text("在首页查看")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                    } header: {
+                        summaryHeader
+                            .glassListHeader()
                     }
-                }
 
-                if filteredTrips.isEmpty {
-                    Section {
-                        ContentUnavailableView("还没有行程",
-                                               systemImage: "car.rear.road.lane",
-                                               description: Text("连上 CarPlay 自动记录，或在首页手动开始。"))
-                    }
-                }
-
-                ForEach(monthGroups) { group in
-                    Section {
-                        ForEach(group.trips) { trip in
-                            NavigationLink {
-                                TripDetailView(trip: trip)
-                            } label: {
-                                TripRow(trip: trip, vehicleName: vehicles.count > 1 ? vehicleName(trip.vehicleID) : nil)
+                    if recorder.isRecording {
+                        Section {
+                            HStack {
+                                Image(systemName: "record.circle.fill")
+                                    .foregroundStyle(Theme.record)
+                                    .symbolEffect(.pulse, options: .repeating)
+                                Text("正在记录：\(Fmt.distance(recorder.distance))")
+                                Spacer()
+                                Text("在首页查看")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                         }
-                        .onDelete { offsets in
-                            delete(group.trips, at: offsets)
+                    }
+
+                    if filteredTrips.isEmpty {
+                        Section {
+                            ContentUnavailableView("还没有行程",
+                                                   systemImage: "car.rear.road.lane",
+                                                   description: Text("连上 CarPlay 自动记录，或在首页手动开始。"))
                         }
-                    } header: {
-                        HStack {
-                            Text(group.title)
-                            Spacer()
-                            Text("\(group.trips.count) 段 · \(Fmt.km(group.distance / 1000))")
+                    }
+
+                    ForEach(monthGroups) { group in
+                        Section {
+                            ForEach(group.trips) { trip in
+                                NavigationLink {
+                                    TripDetailView(trip: trip)
+                                } label: {
+                                    TripRow(trip: trip, vehicleName: vehicles.count > 1 ? vehicleName(trip.vehicleID) : nil)
+                                }
+                            }
+                            .onDelete { offsets in
+                                delete(group.trips, at: offsets)
+                            }
+                        } header: {
+                            HStack {
+                                Text(group.title)
+                                Spacer()
+                                Text("\(group.trips.count) 段 · \(Fmt.km(group.distance / 1000))")
+                            }
                         }
                     }
                 }
+                .listRowBackground(Theme.rowFill)
             }
             .listStyle(.insetGrouped)
             .appBackground()

@@ -18,99 +18,102 @@ struct GarageView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    ForEach(vehicles) { vehicle in
-                        NavigationLink {
-                            VehicleDetailView(vehicle: vehicle)
+                Group {
+                    Section {
+                        ForEach(vehicles) { vehicle in
+                            NavigationLink {
+                                VehicleDetailView(vehicle: vehicle)
+                            } label: {
+                                VehicleRow(vehicle: vehicle,
+                                           isCurrent: vehicle.id.uuidString == currentVehicleIDString,
+                                           odometer: OdometerService.estimate(vehicle: vehicle, trips: trips, fuel: fuelEntries, expenses: expenses))
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    vehiclePendingDelete = vehicle
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button {
+                                    currentVehicleIDString = vehicle.id.uuidString
+                                } label: {
+                                    Label("设为当前", systemImage: "checkmark.circle")
+                                }
+                                .tint(.green)
+                            }
+                        }
+                        Button {
+                            showAddVehicle = true
                         } label: {
-                            VehicleRow(vehicle: vehicle,
-                                       isCurrent: vehicle.id.uuidString == currentVehicleIDString,
-                                       odometer: OdometerService.estimate(vehicle: vehicle, trips: trips, fuel: fuelEntries, expenses: expenses))
+                            Label("添加车辆", systemImage: "plus.circle.fill")
                         }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                vehiclePendingDelete = vehicle
-                            } label: {
-                                Label("删除", systemImage: "trash")
+                    } header: {
+                        Text("车辆")
+                    } footer: {
+                        Text("左滑删除，右滑设为当前车辆。新行程会自动归到当前车辆。")
+                    }
+
+                    Section("自动记录") {
+                        NavigationLink {
+                            ShortcutGuideView()
+                        } label: {
+                            Label("快捷指令自动化设置步骤", systemImage: "wand.and.stars")
+                        }
+                        NavigationLink {
+                            PermissionStatusView()
+                        } label: {
+                            HStack {
+                                Label("定位与通知权限", systemImage: "location.circle")
+                                Spacer()
+                                Text(recorder.hasFullBackgroundPermission ? "正常" : "需要处理")
+                                    .foregroundStyle(recorder.hasFullBackgroundPermission ? Color.green : Color.orange)
                             }
                         }
-                        .swipeActions(edge: .leading) {
-                            Button {
-                                currentVehicleIDString = vehicle.id.uuidString
-                            } label: {
-                                Label("设为当前", systemImage: "checkmark.circle")
+                    }
+
+                    Section("数据") {
+                        NavigationLink {
+                            ExpenseCategoryManagerView()
+                        } label: {
+                            Label("费用分类", systemImage: "square.grid.2x2")
+                        }
+                        NavigationLink {
+                            MaintenanceListView()
+                        } label: {
+                            Label("保养提醒", systemImage: "bell.badge")
+                        }
+                        NavigationLink {
+                            ExportCenterView()
+                        } label: {
+                            Label("导出 CSV", systemImage: "tablecells")
+                        }
+                        NavigationLink {
+                            BackupView()
+                        } label: {
+                            Label("备份与恢复", systemImage: "externaldrive.badge.timemachine")
+                        }
+                    }
+
+                    Section("通用") {
+                        Picker(selection: $currencyCode) {
+                            ForEach(AppSettings.currencies) { option in
+                                Text("\(option.name) \(option.code)").tag(option.code)
                             }
-                            .tint(.green)
+                        } label: {
+                            Label("货币", systemImage: "dollarsign.circle")
                         }
                     }
-                    Button {
-                        showAddVehicle = true
-                    } label: {
-                        Label("添加车辆", systemImage: "plus.circle.fill")
-                    }
-                } header: {
-                    Text("车辆")
-                } footer: {
-                    Text("左滑删除，右滑设为当前车辆。新行程会自动归到当前车辆。")
-                }
 
-                Section("自动记录") {
-                    NavigationLink {
-                        ShortcutGuideView()
-                    } label: {
-                        Label("快捷指令自动化设置步骤", systemImage: "wand.and.stars")
-                    }
-                    NavigationLink {
-                        PermissionStatusView()
-                    } label: {
-                        HStack {
-                            Label("定位与通知权限", systemImage: "location.circle")
-                            Spacer()
-                            Text(recorder.hasFullBackgroundPermission ? "正常" : "需要处理")
-                                .foregroundStyle(recorder.hasFullBackgroundPermission ? Color.green : Color.orange)
-                        }
+                    Section("关于") {
+                        InfoRow(title: "版本", value: appVersion)
+                        Text("数据只保存在本机。侧载的 App 一旦删除，数据会一起丢失，请定期在「备份与恢复」里导出备份，并存到 iCloud 云盘等其他位置。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
-
-                Section("数据") {
-                    NavigationLink {
-                        ExpenseCategoryManagerView()
-                    } label: {
-                        Label("费用分类", systemImage: "square.grid.2x2")
-                    }
-                    NavigationLink {
-                        MaintenanceListView()
-                    } label: {
-                        Label("保养提醒", systemImage: "bell.badge")
-                    }
-                    NavigationLink {
-                        ExportCenterView()
-                    } label: {
-                        Label("导出 CSV", systemImage: "tablecells")
-                    }
-                    NavigationLink {
-                        BackupView()
-                    } label: {
-                        Label("备份与恢复", systemImage: "externaldrive.badge.timemachine")
-                    }
-                }
-
-                Section("通用") {
-                    Picker(selection: $currencyCode) {
-                        ForEach(AppSettings.currencies) { option in
-                            Text("\(option.name) \(option.code)").tag(option.code)
-                        }
-                    } label: {
-                        Label("货币", systemImage: "dollarsign.circle")
-                    }
-                }
-
-                Section("关于") {
-                    InfoRow(title: "版本", value: appVersion)
-                    Text("数据只保存在本机。侧载的 App 一旦删除，数据会一起丢失，请定期在「备份与恢复」里导出备份，并存到 iCloud 云盘等其他位置。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+                .listRowBackground(Theme.rowFill)
             }
             .appBackground()
             .navigationTitle("车辆与设置")

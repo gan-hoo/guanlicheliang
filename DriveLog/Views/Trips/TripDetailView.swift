@@ -19,90 +19,93 @@ struct TripDetailView: View {
 
     var body: some View {
         List {
-            Section {
-                mapArea
-                    .frame(height: 320)
-                    .listRowInsets(EdgeInsets())
-            }
+            Group {
+                Section {
+                    mapArea
+                        .frame(height: 320)
+                        .listRowInsets(EdgeInsets())
+                }
 
-            Section("概要") {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    StatTile(title: "距离", value: Fmt.distance(trip.distance), systemImage: "road.lanes", tint: Theme.distance)
-                    StatTile(title: "总时长", value: Fmt.duration(trip.duration), systemImage: "clock.fill", tint: Theme.duration)
-                    StatTile(title: "行驶时长", value: Fmt.duration(trip.movingDuration), systemImage: "steeringwheel", tint: Theme.duration)
-                    StatTile(title: "行驶均速", value: Fmt.speed(trip.averageMovingSpeed), systemImage: "speedometer", tint: Theme.speed)
-                    StatTile(title: "最高速度", value: Fmt.speed(trip.maxSpeed), systemImage: "bolt.fill", tint: Theme.maxSpeed)
-                    StatTile(title: "累计爬升", value: "\(Int(trip.elevationGain.rounded())) m", systemImage: "arrow.up.right", tint: Theme.altitude)
-                    StatTile(title: "最低海拔", value: Fmt.altitude(trip.minAltitude), systemImage: "arrow.down.to.line", tint: Theme.altitude)
-                    StatTile(title: "最高海拔", value: Fmt.altitude(trip.maxAltitude), systemImage: "mountain.2.fill", tint: Theme.altitude)
+                Section("概要") {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        StatTile(title: "距离", value: Fmt.distance(trip.distance), systemImage: "road.lanes", tint: Theme.distance)
+                        StatTile(title: "总时长", value: Fmt.duration(trip.duration), systemImage: "clock.fill", tint: Theme.duration)
+                        StatTile(title: "行驶时长", value: Fmt.duration(trip.movingDuration), systemImage: "steeringwheel", tint: Theme.duration)
+                        StatTile(title: "行驶均速", value: Fmt.speed(trip.averageMovingSpeed), systemImage: "speedometer", tint: Theme.speed)
+                        StatTile(title: "最高速度", value: Fmt.speed(trip.maxSpeed), systemImage: "bolt.fill", tint: Theme.maxSpeed)
+                        StatTile(title: "累计爬升", value: "\(Int(trip.elevationGain.rounded())) m", systemImage: "arrow.up.right", tint: Theme.altitude)
+                        StatTile(title: "最低海拔", value: Fmt.altitude(trip.minAltitude), systemImage: "arrow.down.to.line", tint: Theme.altitude)
+                        StatTile(title: "最高海拔", value: Fmt.altitude(trip.maxAltitude), systemImage: "mountain.2.fill", tint: Theme.altitude)
+                    }
+                    .padding(.vertical, 4)
+                    InfoRow(title: "开始", value: Fmt.dateTimeFull.string(from: trip.startDate))
+                    InfoRow(title: "结束", value: Fmt.dateTimeFull.string(from: trip.endDate))
+                    if let start = trip.startAddress, !start.isEmpty {
+                        InfoRow(title: "起点", value: start)
+                    }
+                    if let end = trip.endAddress, !end.isEmpty {
+                        InfoRow(title: "终点", value: end)
+                    }
+                    InfoRow(title: "GPS 点数", value: "\(trip.pointCount)")
                 }
-                .padding(.vertical, 4)
-                InfoRow(title: "开始", value: Fmt.dateTimeFull.string(from: trip.startDate))
-                InfoRow(title: "结束", value: Fmt.dateTimeFull.string(from: trip.endDate))
-                if let start = trip.startAddress, !start.isEmpty {
-                    InfoRow(title: "起点", value: start)
-                }
-                if let end = trip.endAddress, !end.isEmpty {
-                    InfoRow(title: "终点", value: end)
-                }
-                InfoRow(title: "GPS 点数", value: "\(trip.pointCount)")
-            }
 
-            Section("曲线") {
-                Picker("曲线", selection: $chartKind) {
-                    Text("速度").tag(0)
-                    Text("海拔").tag(1)
+                Section("曲线") {
+                    Picker("曲线", selection: $chartKind) {
+                        Text("速度").tag(0)
+                        Text("海拔").tag(1)
+                    }
+                    .pickerStyle(.segmented)
+                    if isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, minHeight: 200)
+                    } else if chartKind == 0 {
+                        TrackChartView(samples: speedSamples, unit: "km/h", color: Theme.speed,
+                                       gradientColors: SpeedBand.allCases.map(\.color))
+                    } else {
+                        TrackChartView(samples: altitudeSamples, unit: "m", color: Theme.altitude, showsArea: false, includesZero: false)
+                    }
                 }
-                .pickerStyle(.segmented)
-                if isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, minHeight: 200)
-                } else if chartKind == 0 {
-                    TrackChartView(samples: speedSamples, unit: "km/h", color: Theme.speed,
-                                   gradientColors: SpeedBand.allCases.map(\.color))
-                } else {
-                    TrackChartView(samples: altitudeSamples, unit: "m", color: Theme.altitude, showsArea: false, includesZero: false)
-                }
-            }
 
-            Section("车辆") {
-                Picker("归属车辆", selection: $trip.vehicleID) {
-                    Text("未指定").tag(UUID?.none)
-                    ForEach(vehicles) { vehicle in
-                        Text(vehicle.displayName).tag(UUID?.some(vehicle.id))
+                Section("车辆") {
+                    Picker("归属车辆", selection: $trip.vehicleID) {
+                        Text("未指定").tag(UUID?.none)
+                        ForEach(vehicles) { vehicle in
+                            Text(vehicle.displayName).tag(UUID?.some(vehicle.id))
+                        }
+                    }
+                }
+
+                Section("备注") {
+                    TextField("添加备注", text: $trip.notes, axis: .vertical)
+                        .lineLimit(1...5)
+                }
+
+                Section {
+                    if let gpxURL {
+                        ShareLink(item: gpxURL) {
+                            Label("分享 GPX", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    if let csvURL {
+                        ShareLink(item: csvURL) {
+                            Label("分享原始 CSV", systemImage: "tablecells")
+                        }
+                    }
+                } header: {
+                    Text("导出")
+                } footer: {
+                    Text("GPX 和 CSV 已自动保存在「文件」App → 我的 iPhone → 行车记录 → 行程轨迹。")
+                }
+
+                Section {
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label("删除这段行程", systemImage: "trash")
                     }
                 }
             }
-
-            Section("备注") {
-                TextField("添加备注", text: $trip.notes, axis: .vertical)
-                    .lineLimit(1...5)
-            }
-
-            Section {
-                if let gpxURL {
-                    ShareLink(item: gpxURL) {
-                        Label("分享 GPX", systemImage: "square.and.arrow.up")
-                    }
-                }
-                if let csvURL {
-                    ShareLink(item: csvURL) {
-                        Label("分享原始 CSV", systemImage: "tablecells")
-                    }
-                }
-            } header: {
-                Text("导出")
-            } footer: {
-                Text("GPX 和 CSV 已自动保存在「文件」App → 我的 iPhone → 行车记录 → 行程轨迹。")
-            }
-
-            Section {
-                Button(role: .destructive) {
-                    showDeleteConfirm = true
-                } label: {
-                    Label("删除这段行程", systemImage: "trash")
-                }
-            }
+            .listRowBackground(Theme.rowFill)
         }
         .appBackground()
         .navigationTitle(Fmt.dateTimeShort.string(from: trip.startDate))

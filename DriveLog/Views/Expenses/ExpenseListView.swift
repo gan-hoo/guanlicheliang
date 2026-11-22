@@ -35,82 +35,85 @@ struct ExpenseListView: View {
                                                     vehicles: vehicles, trips: trips, fuel: fuelEntries)
         NavigationStack {
             List {
-                if vehicles.isEmpty {
-                    ContentUnavailableView("先添加一辆车", systemImage: "car",
-                                           description: Text("在「车辆/设置」里添加车辆后即可记录费用。"))
-                } else {
-                    Section {
-                    } header: {
-                        VStack(alignment: .leading, spacing: 16) {
-                            summary
-                            MonthlyExpenseChart(expenses: filtered, categories: categories)
-                        }
-                        .glassListHeader()
-                    }
-
-                    if !upcoming.isEmpty {
-                        Section("即将到期") {
-                            ForEach(upcoming) { item in
-                                if let expense = expenses.first(where: { $0.id == item.id }) {
-                                    HStack {
-                                        UpcomingRow(item: item)
-                                        Spacer()
-                                        Button("续费") {
-                                            renewingExpense = expense
-                                        }
-                                        .glassButtonStyle()
-                                        .controlSize(.small)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if filtered.isEmpty {
+                Group {
+                    if vehicles.isEmpty {
+                        ContentUnavailableView("先添加一辆车", systemImage: "car",
+                                               description: Text("在「车辆/设置」里添加车辆后即可记录费用。"))
+                    } else {
                         Section {
-                            Text("还没有费用记录，点右上角「+」添加。")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    ForEach(monthGroups) { group in
-                        Section {
-                            ForEach(group.items) { expense in
-                                Button {
-                                    editingExpense = expense
-                                } label: {
-                                    ExpenseRow(expense: expense,
-                                               category: categories.first(where: { $0.id == expense.categoryID }),
-                                               vehicleName: vehicles.count > 1 ? vehicles.first(where: { $0.id == expense.vehicleID })?.displayName : nil)
-                                }
-                                .buttonStyle(.plain)
-                                .swipeActions(edge: .leading) {
-                                    if expense.isRecurring && !expense.renewed {
-                                        Button {
-                                            renewingExpense = expense
-                                        } label: {
-                                            Label("续费", systemImage: "arrow.clockwise")
-                                        }
-                                        .tint(.blue)
-                                    }
-                                }
-                            }
-                            .onDelete { offsets in
-                                for index in offsets {
-                                    context.delete(group.items[index])
-                                }
-                                try? context.save()
-                                ReminderEngine.rescheduleAll(context: context)
-                            }
                         } header: {
-                            HStack {
-                                Text(group.title)
-                                Spacer()
-                                Text(Fmt.money(group.total))
+                            VStack(alignment: .leading, spacing: 16) {
+                                summary
+                                MonthlyExpenseChart(expenses: filtered, categories: categories)
+                            }
+                            .glassListHeader()
+                        }
+
+                        if !upcoming.isEmpty {
+                            Section("即将到期") {
+                                ForEach(upcoming) { item in
+                                    if let expense = expenses.first(where: { $0.id == item.id }) {
+                                        HStack {
+                                            UpcomingRow(item: item)
+                                            Spacer()
+                                            Button("续费") {
+                                                renewingExpense = expense
+                                            }
+                                            .glassButtonStyle()
+                                            .controlSize(.small)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if filtered.isEmpty {
+                            Section {
+                                Text("还没有费用记录，点右上角「+」添加。")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        ForEach(monthGroups) { group in
+                            Section {
+                                ForEach(group.items) { expense in
+                                    Button {
+                                        editingExpense = expense
+                                    } label: {
+                                        ExpenseRow(expense: expense,
+                                                   category: categories.first(where: { $0.id == expense.categoryID }),
+                                                   vehicleName: vehicles.count > 1 ? vehicles.first(where: { $0.id == expense.vehicleID })?.displayName : nil)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .swipeActions(edge: .leading) {
+                                        if expense.isRecurring && !expense.renewed {
+                                            Button {
+                                                renewingExpense = expense
+                                            } label: {
+                                                Label("续费", systemImage: "arrow.clockwise")
+                                            }
+                                            .tint(.blue)
+                                        }
+                                    }
+                                }
+                                .onDelete { offsets in
+                                    for index in offsets {
+                                        context.delete(group.items[index])
+                                    }
+                                    try? context.save()
+                                    ReminderEngine.rescheduleAll(context: context)
+                                }
+                            } header: {
+                                HStack {
+                                    Text(group.title)
+                                    Spacer()
+                                    Text(Fmt.money(group.total))
+                                }
                             }
                         }
                     }
                 }
+                .listRowBackground(Theme.rowFill)
             }
             .appBackground()
             .navigationTitle("费用")

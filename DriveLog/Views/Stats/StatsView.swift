@@ -44,154 +44,157 @@ struct StatsView: View {
                              vehicles: vehicles, trips: trips, fuel: fuelEntries,
                              expenses: expenses, categories: categories)
         List {
-            Section {
-                Picker("周期", selection: $periodKind) {
-                    ForEach(PeriodKind.allCases) { kind in
-                        Text(kind.rawValue).tag(kind)
-                    }
-                }
-                .pickerStyle(.segmented)
-                HStack {
-                    Button {
-                        shift(-1)
-                    } label: {
-                        Image(systemName: "chevron.left")
-                    }
-                    Spacer()
-                    Text(periodTitle)
-                        .font(.headline)
-                    Spacer()
-                    Button {
-                        shift(1)
-                    } label: {
-                        Image(systemName: "chevron.right")
-                    }
-                    .disabled(!canGoForward)
-                }
-                .buttonStyle(.borderless)
-                Picker("车辆", selection: $vehicleID) {
-                    Text("全部车辆").tag(UUID?.none)
-                    ForEach(vehicles) { v in
-                        Text(v.displayName).tag(UUID?.some(v.id))
-                    }
-                }
-            }
-
-            Section("概览") {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    StatTile(title: "总花费", value: Fmt.money(data.totalCost), systemImage: "creditcard.fill", tint: Theme.money)
-                    StatTile(title: "每公里成本", value: data.costPerKm.map { Fmt.money($0) } ?? "—", systemImage: "road.lanes", tint: Theme.distance)
-                    StatTile(title: "油费", value: Fmt.money(data.fuelCost), systemImage: "fuelpump.fill", tint: Theme.fuel)
-                    StatTile(title: "其他费用", value: Fmt.money(data.otherCost), systemImage: "wrench.and.screwdriver.fill", tint: Theme.duration)
-                    StatTile(title: "总里程", value: Fmt.km(data.distanceKm), systemImage: "map.fill", tint: Theme.distance)
-                    StatTile(title: "平均油耗", value: Fmt.economy(data.averageEconomy), systemImage: "gauge.with.dots.needle.33percent", tint: Theme.fuel)
-                    StatTile(title: "加油量", value: String(format: "%.1f L", data.liters), systemImage: "drop.fill", tint: Theme.accentSecondary)
-                    StatTile(title: "行程", value: "\(data.tripCount) 段", systemImage: "car.fill", tint: Theme.altitude)
-                }
-                .padding(.vertical, 4)
-                Text("每公里成本 = （油费 + 其他费用）÷ 记录的行程里程。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("花费构成") {
-                if data.breakdown.isEmpty {
-                    Text("这段时间没有花费")
-                        .foregroundStyle(.secondary)
-                } else {
-                    Chart(data.breakdown) { item in
-                        SectorMark(angle: .value("金额", item.amount),
-                                   innerRadius: .ratio(0.62),
-                                   angularInset: 2)
-                            .foregroundStyle(item.color)
-                            .cornerRadius(3)
-                    }
-                    .frame(height: 220)
-                    .chartBackground { _ in
-                        VStack(spacing: 2) {
-                            Text("合计")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text(Fmt.money(data.totalCost))
-                                .font(.headline)
-                                .monospacedDigit()
+            Group {
+                Section {
+                    Picker("周期", selection: $periodKind) {
+                        ForEach(PeriodKind.allCases) { kind in
+                            Text(kind.rawValue).tag(kind)
                         }
                     }
-                    ForEach(data.breakdown) { item in
-                        HStack(spacing: 10) {
-                            Circle()
-                                .fill(item.color)
-                                .frame(width: 10, height: 10)
-                            Text(item.name)
-                            Spacer()
-                            Text(Fmt.money(item.amount))
-                                .monospacedDigit()
-                            Text(String(format: "%.0f%%", item.amount / max(data.totalCost, 0.0001) * 100))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .frame(width: 40, alignment: .trailing)
+                    .pickerStyle(.segmented)
+                    HStack {
+                        Button {
+                            shift(-1)
+                        } label: {
+                            Image(systemName: "chevron.left")
+                        }
+                        Spacer()
+                        Text(periodTitle)
+                            .font(.headline)
+                        Spacer()
+                        Button {
+                            shift(1)
+                        } label: {
+                            Image(systemName: "chevron.right")
+                        }
+                        .disabled(!canGoForward)
+                    }
+                    .buttonStyle(.borderless)
+                    Picker("车辆", selection: $vehicleID) {
+                        Text("全部车辆").tag(UUID?.none)
+                        ForEach(vehicles) { v in
+                            Text(v.displayName).tag(UUID?.some(v.id))
                         }
                     }
                 }
-            }
 
-            Section(periodKind == .year ? "每月花费" : "最近 12 个月花费") {
-                Chart(data.monthlyCosts) { item in
-                    BarMark(x: .value("月份", item.month, unit: .month),
-                            y: .value("金额", item.amount),
-                            width: .ratio(0.62))
-                        .foregroundStyle(by: .value("类型", item.kind))
-                        .cornerRadius(4)
-                }
-                .chartForegroundStyleScale(domain: ["油费", "其他费用"], range: [Theme.fuel, Theme.money])
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .month, count: 2)) { _ in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.month(.defaultDigits))
+                Section("概览") {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        StatTile(title: "总花费", value: Fmt.money(data.totalCost), systemImage: "creditcard.fill", tint: Theme.money)
+                        StatTile(title: "每公里成本", value: data.costPerKm.map { Fmt.money($0) } ?? "—", systemImage: "road.lanes", tint: Theme.distance)
+                        StatTile(title: "油费", value: Fmt.money(data.fuelCost), systemImage: "fuelpump.fill", tint: Theme.fuel)
+                        StatTile(title: "其他费用", value: Fmt.money(data.otherCost), systemImage: "wrench.and.screwdriver.fill", tint: Theme.duration)
+                        StatTile(title: "总里程", value: Fmt.km(data.distanceKm), systemImage: "map.fill", tint: Theme.distance)
+                        StatTile(title: "平均油耗", value: Fmt.economy(data.averageEconomy), systemImage: "gauge.with.dots.needle.33percent", tint: Theme.fuel)
+                        StatTile(title: "加油量", value: String(format: "%.1f L", data.liters), systemImage: "drop.fill", tint: Theme.accentSecondary)
+                        StatTile(title: "行程", value: "\(data.tripCount) 段", systemImage: "car.fill", tint: Theme.altitude)
                     }
-                }
-                .chartLegend(position: .bottom, alignment: .leading)
-                .frame(height: 200)
-            }
-
-            Section(periodKind == .year ? "每月里程" : "最近 12 个月里程") {
-                Chart(data.monthlyDistance) { item in
-                    BarMark(x: .value("月份", item.month, unit: .month),
-                            y: .value("km", item.value),
-                            width: .ratio(0.62))
-                        .foregroundStyle(LinearGradient(colors: [Theme.distance, Theme.accentSecondary],
-                                                        startPoint: .bottom, endPoint: .top))
-                        .cornerRadius(4)
-                }
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .month, count: 2)) { _ in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.month(.defaultDigits))
-                    }
-                }
-                .chartYAxisLabel("km")
-                .frame(height: 180)
-            }
-
-            Section("油耗趋势") {
-                if data.economyPoints.isEmpty {
-                    Text("这段时间没有可计算的油耗（需要两次「加满」）")
+                    .padding(.vertical, 4)
+                    Text("每公里成本 = （油费 + 其他费用）÷ 记录的行程里程。")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                } else {
-                    Chart(data.economyPoints) { point in
-                        LineMark(x: .value("日期", point.date),
-                                 y: .value("L/100km", point.value))
-                            .foregroundStyle(by: .value("车辆", point.vehicleName))
-                            .interpolationMethod(.monotone)
-                        PointMark(x: .value("日期", point.date),
-                                  y: .value("L/100km", point.value))
-                            .foregroundStyle(by: .value("车辆", point.vehicleName))
+                }
+
+                Section("花费构成") {
+                    if data.breakdown.isEmpty {
+                        Text("这段时间没有花费")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Chart(data.breakdown) { item in
+                            SectorMark(angle: .value("金额", item.amount),
+                                       innerRadius: .ratio(0.62),
+                                       angularInset: 2)
+                                .foregroundStyle(item.color)
+                                .cornerRadius(3)
+                        }
+                        .frame(height: 220)
+                        .chartBackground { _ in
+                            VStack(spacing: 2) {
+                                Text("合计")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(Fmt.money(data.totalCost))
+                                    .font(.headline)
+                                    .monospacedDigit()
+                            }
+                        }
+                        ForEach(data.breakdown) { item in
+                            HStack(spacing: 10) {
+                                Circle()
+                                    .fill(item.color)
+                                    .frame(width: 10, height: 10)
+                                Text(item.name)
+                                Spacer()
+                                Text(Fmt.money(item.amount))
+                                    .monospacedDigit()
+                                Text(String(format: "%.0f%%", item.amount / max(data.totalCost, 0.0001) * 100))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 40, alignment: .trailing)
+                            }
+                        }
                     }
-                    .chartYScale(domain: .automatic(includesZero: false))
-                    .chartYAxisLabel("L/100km")
+                }
+
+                Section(periodKind == .year ? "每月花费" : "最近 12 个月花费") {
+                    Chart(data.monthlyCosts) { item in
+                        BarMark(x: .value("月份", item.month, unit: .month),
+                                y: .value("金额", item.amount),
+                                width: .ratio(0.62))
+                            .foregroundStyle(by: .value("类型", item.kind))
+                            .cornerRadius(4)
+                    }
+                    .chartForegroundStyleScale(domain: ["油费", "其他费用"], range: [Theme.fuel, Theme.money])
+                    .chartXAxis {
+                        AxisMarks(values: .stride(by: .month, count: 2)) { _ in
+                            AxisGridLine()
+                            AxisValueLabel(format: .dateTime.month(.defaultDigits))
+                        }
+                    }
+                    .chartLegend(position: .bottom, alignment: .leading)
                     .frame(height: 200)
                 }
+
+                Section(periodKind == .year ? "每月里程" : "最近 12 个月里程") {
+                    Chart(data.monthlyDistance) { item in
+                        BarMark(x: .value("月份", item.month, unit: .month),
+                                y: .value("km", item.value),
+                                width: .ratio(0.62))
+                            .foregroundStyle(LinearGradient(colors: [Theme.distance, Theme.accentSecondary],
+                                                            startPoint: .bottom, endPoint: .top))
+                            .cornerRadius(4)
+                    }
+                    .chartXAxis {
+                        AxisMarks(values: .stride(by: .month, count: 2)) { _ in
+                            AxisGridLine()
+                            AxisValueLabel(format: .dateTime.month(.defaultDigits))
+                        }
+                    }
+                    .chartYAxisLabel("km")
+                    .frame(height: 180)
+                }
+
+                Section("油耗趋势") {
+                    if data.economyPoints.isEmpty {
+                        Text("这段时间没有可计算的油耗（需要两次「加满」）")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Chart(data.economyPoints) { point in
+                            LineMark(x: .value("日期", point.date),
+                                     y: .value("L/100km", point.value))
+                                .foregroundStyle(by: .value("车辆", point.vehicleName))
+                                .interpolationMethod(.monotone)
+                            PointMark(x: .value("日期", point.date),
+                                      y: .value("L/100km", point.value))
+                                .foregroundStyle(by: .value("车辆", point.vehicleName))
+                        }
+                        .chartYScale(domain: .automatic(includesZero: false))
+                        .chartYAxisLabel("L/100km")
+                        .frame(height: 200)
+                    }
+                }
             }
+            .listRowBackground(Theme.rowFill)
         }
         .appBackground()
         .animation(Theme.spring, value: periodKind)

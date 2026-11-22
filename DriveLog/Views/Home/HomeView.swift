@@ -31,58 +31,71 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: Theme.spacing) {
-                    PermissionBanner()
-
-                    Group {
-                        if recorder.isRecording {
-                            RecordingPanel(recorder: recorder, vehicleName: recordingVehicleName) {
-                                showStopConfirm = true
+            // 和行程 / 加油 / 费用页一样：卡片放在列表的分区标题里，位置和宽度完全一致
+            List {
+                Section {
+                } header: {
+                    VStack(spacing: 0) {
+                        PermissionBanner()
+                        Group {
+                            if recorder.isRecording {
+                                RecordingPanel(recorder: recorder, vehicleName: recordingVehicleName) {
+                                    showStopConfirm = true
+                                }
+                                .transition(.asymmetric(insertion: .scale(scale: 0.94).combined(with: .opacity),
+                                                        removal: .scale(scale: 0.98).combined(with: .opacity)))
+                            } else if let vehicle = currentVehicle {
+                                IdleHero(vehicle: vehicle,
+                                         vehicles: vehicles,
+                                         odometer: OdometerService.estimate(vehicle: vehicle, trips: trips, fuel: fuelEntries, expenses: expenses),
+                                         onSelectVehicle: { currentVehicleIDString = $0.uuidString },
+                                         onStart: { recorder.startRecording(trigger: .manual) })
+                                .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
+                                                        removal: .opacity))
+                            } else {
+                                addVehiclePrompt
                             }
-                            .transition(.asymmetric(insertion: .scale(scale: 0.94).combined(with: .opacity),
-                                                    removal: .scale(scale: 0.98).combined(with: .opacity)))
-                        } else if let vehicle = currentVehicle {
-                            IdleHero(vehicle: vehicle,
-                                     vehicles: vehicles,
-                                     odometer: OdometerService.estimate(vehicle: vehicle, trips: trips, fuel: fuelEntries, expenses: expenses),
-                                     onSelectVehicle: { currentVehicleIDString = $0.uuidString },
-                                     onStart: { recorder.startRecording(trigger: .manual) })
-                            .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
-                                                    removal: .opacity))
-                        } else {
-                            addVehiclePrompt
                         }
+                        .animation(Theme.spring, value: recorder.isRecording)
                     }
-                    .animation(Theme.spring, value: recorder.isRecording)
+                    .listHeaderContainer()
+                }
 
-                    if let vehicle = currentVehicle {
+                if let vehicle = currentVehicle {
+                    Section {
+                    } header: {
                         VehicleOverviewCard(vehicle: vehicle, trips: trips, fuel: fuelEntries, expenses: expenses)
-                            .cardScrollEffect()
+                            .listHeaderContainer()
                     }
+                }
 
-                    let upcoming = ReminderEngine.upcomingItems(expenses: expenses, reminders: reminders,
-                                                                categories: categories, vehicles: vehicles,
-                                                                trips: trips, fuel: fuelEntries)
-                    if !upcoming.isEmpty {
+                let upcoming = ReminderEngine.upcomingItems(expenses: expenses, reminders: reminders,
+                                                            categories: categories, vehicles: vehicles,
+                                                            trips: trips, fuel: fuelEntries)
+                if !upcoming.isEmpty {
+                    Section {
+                    } header: {
                         upcomingCard(Array(upcoming.prefix(4)))
-                            .cardScrollEffect()
+                            .listHeaderContainer()
                     }
+                }
 
-                    if let last = trips.first {
+                if let last = trips.first {
+                    Section {
+                    } header: {
                         NavigationLink {
                             TripDetailView(trip: last)
                         } label: {
                             LastTripCard(trip: last)
                         }
                         .buttonStyle(.plain)
-                        .cardScrollEffect()
+                        .listHeaderContainer()
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 24)
             }
+            .listStyle(.insetGrouped)
+            .listSectionSpacing(.custom(Theme.spacing))
+            .scrollContentBackground(.hidden)
             .scrollIndicators(.hidden)
             .background { AppBackground() }
             .navigationTitle("行车记录")
