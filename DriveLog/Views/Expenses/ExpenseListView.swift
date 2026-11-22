@@ -328,7 +328,10 @@ struct MonthlyExpenseChart: View {
         let bars = sums.flatMap { name, byMonth in
             byMonth.map { Bar(month: $0.key, category: name, amount: $0.value) }
         }
-        let names = categories.map(\.name).filter { sums[$0] != nil } + (sums["未分类"] != nil ? ["未分类"] : [])
+        var names: [String] = []
+        for name in categories.map(\.name) + ["未分类"] where sums[name] != nil && !names.contains(name) {
+            names.append(name)
+        }
         let colors = names.map { name in
             CategoryPalette.color(for: categories.first(where: { $0.name == name }))
         }
