@@ -154,6 +154,7 @@ struct FuelListView: View {
         }
         .animation(.snappy, value: analysis.averageEconomy ?? 0)
     }
+}
 
 struct FuelRow: View {
     let entry: FuelEntry
