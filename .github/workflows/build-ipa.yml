@@ -83,6 +83,9 @@ jobs:
           done
           grep -q StartTripIntent "$APP/Metadata.appintents/extract.actionsdata"
           grep -q StopTripIntent "$APP/Metadata.appintents/extract.actionsdata"
+          echo "---- Alternate icons ----"
+          plutil -extract CFBundleIcons.CFBundleAlternateIcons json -o - "$APP/Info.plist"
+          plutil -extract CFBundleIcons.CFBundleAlternateIcons json -o - "$APP/Info.plist" | grep -q "AppIcon-Odometer"
           echo "---- Assets ----"
           ls "$APP" | grep -E "Assets.car|AppIcon" || true
           test -f "$APP/Assets.car"

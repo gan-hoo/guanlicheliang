@@ -104,6 +104,11 @@ struct GarageView: View {
                         } label: {
                             Label("货币", systemImage: "dollarsign.circle")
                         }
+                        NavigationLink {
+                            AppIconPickerView()
+                        } label: {
+                            Label("更换图标", systemImage: "app.badge")
+                        }
                     }
 
                     Section("关于") {
