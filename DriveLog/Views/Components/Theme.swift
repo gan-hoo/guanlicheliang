@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// 统一的配色与尺寸。每种数据固定一种颜色，全 App 一致：
 /// 距离 = 蓝，时间 = 靛，速度 = 橙，最高速 = 红，海拔 = 绿，花费 = 粉，燃油 = 琥珀
@@ -14,6 +15,12 @@ enum Theme {
     static let money = Color(red: 0.94, green: 0.29, blue: 0.55)
     static let fuel = Color(red: 1.0, green: 0.62, blue: 0.08)
     static let record = Color(red: 0.97, green: 0.22, blue: 0.27)
+    /// 首页 START 按钮：和图标指针一样的深海军蓝（深色模式下用浅一点的蓝灰）
+    static let startButton = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.36, green: 0.45, blue: 0.62, alpha: 1)
+            : UIColor(red: 0.08, green: 0.15, blue: 0.30, alpha: 1)
+    })
 
     /// 白色背景上的列表行底色（让分组的圆角边框显示出来）
     static let rowFill = Color(uiColor: .secondarySystemBackground)

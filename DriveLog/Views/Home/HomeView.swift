@@ -222,7 +222,7 @@ struct IdleHero: View {
             ZStack {
                 // 呼吸光圈
                 Circle()
-                    .fill(Theme.accent.opacity(0.35))
+                    .fill(Theme.startButton.opacity(0.22))
                     .frame(width: 112, height: 112)
                     .phaseAnimator([false, true]) { content, expanded in
                         content
@@ -243,7 +243,7 @@ struct IdleHero: View {
                 }
                 .glassButtonStyle(prominent: true)
                 .buttonBorderShape(.circle)
-                .tint(Theme.accent)
+                .tint(Theme.startButton)
             }
             .frame(height: 130)
 
