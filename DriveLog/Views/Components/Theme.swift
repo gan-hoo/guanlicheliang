@@ -115,10 +115,14 @@ struct OdometerView: View {
                             .frame(height: 1)
                     )
             }
+        }
+        // 只让数字居中：km 挂在数字右边，不参与布局
+        .overlay(alignment: .trailing) {
             Text("km")
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.secondary)
-                .padding(.leading, 4)
+                .fixedSize()
+                .alignmentGuide(.trailing) { d in d[.leading] - 7 }
         }
         .animation(.snappy, value: number)
     }
