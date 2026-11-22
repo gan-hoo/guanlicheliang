@@ -40,7 +40,7 @@ struct FuelListView: View {
                         Section {
                         } header: {
                             summary(analysis)
-                                .glassListHeader()
+                                .glassListHeader(topSpacing: Theme.firstCardTopSpacing)
                         }
 
                         if vehicleEntries.count >= 2 {

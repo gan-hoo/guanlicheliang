@@ -58,7 +58,7 @@ struct HomeView: View {
                         }
                         .animation(Theme.spring, value: recorder.isRecording)
                     }
-                    .listHeaderContainer()
+                    .listHeaderContainer(topSpacing: Theme.firstCardTopSpacing)
                 }
 
                 if let vehicle = currentVehicle {

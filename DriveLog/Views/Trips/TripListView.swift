@@ -24,7 +24,7 @@ struct TripListView: View {
                     Section {
                     } header: {
                         summaryHeader
-                            .glassListHeader()
+                            .glassListHeader(topSpacing: Theme.firstCardTopSpacing)
                     }
 
                     if recorder.isRecording {

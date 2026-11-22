@@ -46,7 +46,7 @@ struct ExpenseListView: View {
                                 summary
                                 MonthlyExpenseChart(expenses: filtered, categories: categories)
                             }
-                            .glassListHeader()
+                            .glassListHeader(topSpacing: Theme.firstCardTopSpacing)
                         }
 
                         if !upcoming.isEmpty {
