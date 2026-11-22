@@ -96,41 +96,37 @@ extension View {
     }
 }
 
-/// 柔和的彩色背景：玻璃需要有内容在后面才看得出折射效果
+/// 柔和的彩色背景：玻璃需要有内容在后面才看得出折射效果。
+/// 浅色：近白的冷灰底；深色：深海军蓝底，再叠几团模糊的品牌色光斑。
 struct AppBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let strength = colorScheme == .dark ? 0.55 : 1.0
+        let dark = colorScheme == .dark
         ZStack {
-            Color(uiColor: .systemGroupedBackground)
-            LinearGradient(colors: [Color.blue.opacity(0.16 * strength),
-                                    Color.teal.opacity(0.08 * strength),
-                                    Color.purple.opacity(0.12 * strength)],
-                           startPoint: .topLeading,
-                           endPoint: .bottomTrailing)
+            (dark ? Color(red: 0.035, green: 0.05, blue: 0.10) : Color(red: 0.948, green: 0.958, blue: 0.985))
             GeometryReader { proxy in
                 let w = proxy.size.width
                 let h = proxy.size.height
                 ZStack {
-                    Circle()
-                        .fill(Color.blue.opacity(0.30 * strength))
-                        .frame(width: w * 0.9, height: w * 0.9)
-                        .blur(radius: 70)
-                        .position(x: w * 0.15, y: h * 0.08)
-                    Circle()
-                        .fill(Color.orange.opacity(0.20 * strength))
-                        .frame(width: w * 0.75, height: w * 0.75)
-                        .blur(radius: 80)
-                        .position(x: w * 0.95, y: h * 0.42)
-                    Circle()
-                        .fill(Color.purple.opacity(0.22 * strength))
-                        .frame(width: w * 0.85, height: w * 0.85)
-                        .blur(radius: 80)
-                        .position(x: w * 0.2, y: h * 0.85)
+                    glow(Theme.accent, opacity: dark ? 0.38 : 0.26, size: w * 1.05)
+                        .position(x: w * 0.08, y: h * 0.04)
+                    glow(Theme.accentSecondary, opacity: dark ? 0.24 : 0.20, size: w * 0.85)
+                        .position(x: w * 0.98, y: h * 0.30)
+                    glow(Color(red: 0.55, green: 0.36, blue: 0.95), opacity: dark ? 0.26 : 0.14, size: w * 0.95)
+                        .position(x: w * 0.10, y: h * 0.72)
+                    glow(Theme.fuel, opacity: dark ? 0.14 : 0.12, size: w * 0.75)
+                        .position(x: w * 0.92, y: h * 0.98)
                 }
             }
         }
         .ignoresSafeArea()
+    }
+
+    private func glow(_ color: Color, opacity: Double, size: CGFloat) -> some View {
+        Circle()
+            .fill(color.opacity(opacity))
+            .frame(width: size, height: size)
+            .blur(radius: size * 0.22)
     }
 }

@@ -155,18 +155,18 @@ struct VehicleRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            VehicleAvatar(photoData: vehicle.photoData, size: 48)
+            VehicleAvatar(photoData: vehicle.photoData, size: 54)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(vehicle.displayName)
                         .font(.headline)
                     if isCurrent {
-                        Text("当前")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 6)
+                        Label("当前", systemImage: "checkmark.seal.fill")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(Theme.altitude)
+                            .padding(.horizontal, 7)
                             .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.green))
+                            .background(Capsule().fill(Theme.altitude.opacity(0.14)))
                     }
                 }
                 let subtitle = [vehicle.subtitle, vehicle.plate].filter { !$0.isEmpty }.joined(separator: " · ")

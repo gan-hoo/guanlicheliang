@@ -21,6 +21,8 @@ struct RootView: View {
                 .tabItem { Label("车辆/设置", systemImage: "car.2") }
         }
         .minimizeTabBarOnScroll()
+        .tint(Theme.accent)
+        .fontDesign(.rounded)
         .task {
             SeedData.ensureDefaults(context: context)
             TripRecorder.shared.bootstrap()

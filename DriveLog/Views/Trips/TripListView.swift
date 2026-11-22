@@ -22,13 +22,15 @@ struct TripListView: View {
             List {
                 Section {
                     summaryHeader
+                        .glassListRow()
                 }
 
                 if recorder.isRecording {
                     Section {
                         HStack {
-                            Image(systemName: "record.circle")
-                                .foregroundStyle(.red)
+                            Image(systemName: "record.circle.fill")
+                                .foregroundStyle(Theme.record)
+                                .symbolEffect(.pulse, options: .repeating)
                             Text("正在记录：\(Fmt.distance(recorder.distance))")
                             Spacer()
                             Text("在首页查看")
@@ -92,21 +94,30 @@ struct TripListView: View {
     private var summaryHeader: some View {
         let totalDistance = filteredTrips.reduce(0) { $0 + $1.distance }
         let totalDuration = filteredTrips.reduce(0) { $0 + $1.duration }
-        return VStack(alignment: .leading, spacing: 8) {
+        let calendar = Calendar.current
+        let monthDistance = filteredTrips
+            .filter { calendar.isDate($0.startDate, equalTo: Date(), toGranularity: .month) }
+            .reduce(0) { $0 + $1.distance }
+        return VStack(alignment: .leading, spacing: 12) {
             Text("累计里程")
-                .font(.subheadline)
+                .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
-            Text(Fmt.km(totalDistance / 1000))
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-                .monospacedDigit()
-            HStack(spacing: 16) {
-                Label("\(filteredTrips.count) 段行程", systemImage: "map")
-                Label(Fmt.duration(totalDuration), systemImage: "clock")
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(Fmt.number(totalDistance / 1000, decimals: 1))
+                    .font(.numeric(44, weight: .bold))
+                    .foregroundStyle(Theme.brandGradient)
+                    .contentTransition(.numericText())
+                Text("km")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.secondary)
             }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                SummaryChip(text: "\(filteredTrips.count) 段", systemImage: "map.fill", tint: Theme.altitude)
+                SummaryChip(text: Fmt.duration(totalDuration), systemImage: "clock.fill", tint: Theme.duration)
+                SummaryChip(text: "本月 \(Fmt.km(monthDistance / 1000))", systemImage: "calendar", tint: Theme.distance)
+            }
         }
-        .padding(.vertical, 4)
+        .animation(.snappy, value: totalDistance)
     }
 
     private func vehicleName(_ id: UUID?) -> String? {
@@ -160,40 +171,60 @@ struct TripRow: View {
     let vehicleName: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(Fmt.dateTimeShort.string(from: trip.startDate))
-                    .font(.headline)
-                Text(Fmt.weekday.string(from: trip.startDate))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(Fmt.distance(trip.distance))
-                    .font(.headline)
-                    .monospacedDigit()
-            }
-            if let route = trip.routeText {
-                Text(route)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            HStack(spacing: 12) {
-                Label(Fmt.duration(trip.duration), systemImage: "clock")
-                Label("均 \(Fmt.speed(trip.averageMovingSpeed))", systemImage: "speedometer")
-                Label("最高 \(Fmt.speed(trip.maxSpeed))", systemImage: "bolt")
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            if let vehicleName {
-                Text(vehicleName)
-                    .font(.caption2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+        HStack(spacing: 12) {
+            DateBadge(date: trip.startDate,
+                      tint: SpeedBand.band(forKmh: trip.averageMovingSpeed * 3.6).color)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(Fmt.distance(trip.distance))
+                        .font(.numeric(19, weight: .bold))
+                        .monospacedDigit()
+                    Spacer()
+                    Text("\(Fmt.time.string(from: trip.startDate))–\(Fmt.time.string(from: trip.endDate))")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                if let route = trip.routeText {
+                    Text(route)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                HStack(spacing: 12) {
+                    MetricLabel(text: Fmt.duration(trip.duration), systemImage: "clock.fill", tint: Theme.duration)
+                    MetricLabel(text: Fmt.speed(trip.averageMovingSpeed), systemImage: "speedometer", tint: Theme.speed)
+                    MetricLabel(text: Fmt.speed(trip.maxSpeed), systemImage: "bolt.fill", tint: Theme.maxSpeed)
+                }
+                if let vehicleName {
+                    Label(vehicleName, systemImage: "car.fill")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Theme.accent.opacity(0.12)))
+                }
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
+    }
+}
+
+/// 列表头部的小胶囊
+struct SummaryChip: View {
+    let text: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .foregroundStyle(tint)
+            Text(text)
+                .lineLimit(1)
+        }
+        .font(.caption.weight(.medium))
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(tint.opacity(0.12)))
     }
 }

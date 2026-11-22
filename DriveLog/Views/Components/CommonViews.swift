@@ -28,27 +28,33 @@ struct StatTile: View {
     var tint: Color = .accentColor
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
                 if let systemImage {
-                    Image(systemName: systemImage)
-                        .foregroundStyle(tint)
+                    MetricIcon(systemName: systemImage, tint: tint, size: 22)
                 }
                 Text(title)
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            .font(.caption)
             Text(value)
-                .font(.title3.weight(.semibold))
+                .font(.numeric(19, weight: .bold))
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.55)
+                .contentTransition(.numericText())
+                .animation(.snappy, value: value)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(uiColor: .tertiarySystemFill))
+            RoundedRectangle(cornerRadius: Theme.tileRadius, style: .continuous)
+                .fill(tint.opacity(0.09))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.tileRadius, style: .continuous)
+                .strokeBorder(tint.opacity(0.14), lineWidth: 0.5)
         )
     }
 }

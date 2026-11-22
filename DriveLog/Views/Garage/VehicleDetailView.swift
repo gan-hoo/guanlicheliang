@@ -57,13 +57,14 @@ struct VehicleDetailView: View {
             }
 
             Section {
-                HStack {
+                VStack(spacing: 8) {
                     Text("估算当前里程")
-                    Spacer()
-                    Text(Fmt.odometer(estimate))
-                        .font(.title3.weight(.semibold))
-                        .monospacedDigit()
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    OdometerView(value: estimate, digits: 6, digitWidth: 24, digitHeight: 36)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
                 Button {
                     showCalibrate = true
                 } label: {
@@ -107,6 +108,7 @@ struct VehicleDetailView: View {
                 }
             }
         }
+        .appBackground()
         .navigationTitle(vehicle.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

@@ -27,14 +27,14 @@ struct TripDetailView: View {
 
             Section("概要") {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    StatTile(title: "距离", value: Fmt.distance(trip.distance), systemImage: "road.lanes", tint: .blue)
-                    StatTile(title: "总时长", value: Fmt.duration(trip.duration), systemImage: "clock", tint: .purple)
-                    StatTile(title: "行驶时长", value: Fmt.duration(trip.movingDuration), systemImage: "steeringwheel", tint: .indigo)
-                    StatTile(title: "行驶均速", value: Fmt.speed(trip.averageMovingSpeed), systemImage: "speedometer", tint: .teal)
-                    StatTile(title: "最高速度", value: Fmt.speed(trip.maxSpeed), systemImage: "bolt.fill", tint: .orange)
-                    StatTile(title: "累计爬升", value: "\(Int(trip.elevationGain.rounded())) m", systemImage: "arrow.up.right", tint: .green)
-                    StatTile(title: "最低海拔", value: Fmt.altitude(trip.minAltitude), systemImage: "arrow.down.to.line", tint: .brown)
-                    StatTile(title: "最高海拔", value: Fmt.altitude(trip.maxAltitude), systemImage: "mountain.2.fill", tint: .green)
+                    StatTile(title: "距离", value: Fmt.distance(trip.distance), systemImage: "road.lanes", tint: Theme.distance)
+                    StatTile(title: "总时长", value: Fmt.duration(trip.duration), systemImage: "clock.fill", tint: Theme.duration)
+                    StatTile(title: "行驶时长", value: Fmt.duration(trip.movingDuration), systemImage: "steeringwheel", tint: Theme.duration)
+                    StatTile(title: "行驶均速", value: Fmt.speed(trip.averageMovingSpeed), systemImage: "speedometer", tint: Theme.speed)
+                    StatTile(title: "最高速度", value: Fmt.speed(trip.maxSpeed), systemImage: "bolt.fill", tint: Theme.maxSpeed)
+                    StatTile(title: "累计爬升", value: "\(Int(trip.elevationGain.rounded())) m", systemImage: "arrow.up.right", tint: Theme.altitude)
+                    StatTile(title: "最低海拔", value: Fmt.altitude(trip.minAltitude), systemImage: "arrow.down.to.line", tint: Theme.altitude)
+                    StatTile(title: "最高海拔", value: Fmt.altitude(trip.maxAltitude), systemImage: "mountain.2.fill", tint: Theme.altitude)
                 }
                 .padding(.vertical, 4)
                 InfoRow(title: "开始", value: Fmt.dateTimeFull.string(from: trip.startDate))
@@ -58,9 +58,10 @@ struct TripDetailView: View {
                     ProgressView()
                         .frame(maxWidth: .infinity, minHeight: 200)
                 } else if chartKind == 0 {
-                    TrackChartView(samples: speedSamples, unit: "km/h", color: .blue)
+                    TrackChartView(samples: speedSamples, unit: "km/h", color: Theme.speed,
+                                   gradientColors: SpeedBand.allCases.map(\.color))
                 } else {
-                    TrackChartView(samples: altitudeSamples, unit: "m", color: .green, showsArea: false, includesZero: false)
+                    TrackChartView(samples: altitudeSamples, unit: "m", color: Theme.altitude, showsArea: false, includesZero: false)
                 }
             }
 
@@ -103,6 +104,7 @@ struct TripDetailView: View {
                 }
             }
         }
+        .appBackground()
         .navigationTitle(Fmt.dateTimeShort.string(from: trip.startDate))
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: trip.vehicleID) { _, _ in

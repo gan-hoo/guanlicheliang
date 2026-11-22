@@ -40,8 +40,11 @@ struct ExpenseListView: View {
                                            description: Text("在「车辆/设置」里添加车辆后即可记录费用。"))
                 } else {
                     Section {
-                        summary
-                        MonthlyExpenseChart(expenses: filtered, categories: categories)
+                        VStack(alignment: .leading, spacing: 16) {
+                            summary
+                            MonthlyExpenseChart(expenses: filtered, categories: categories)
+                        }
+                        .glassListRow()
                     }
 
                     if !upcoming.isEmpty {
@@ -162,11 +165,25 @@ struct ExpenseListView: View {
         let now = Date()
         let thisMonth = filtered.filter { calendar.isDate($0.date, equalTo: now, toGranularity: .month) }.reduce(0) { $0 + $1.amount }
         let thisYear = filtered.filter { calendar.isDate($0.date, equalTo: now, toGranularity: .year) }.reduce(0) { $0 + $1.amount }
-        return HStack(spacing: 10) {
-            StatTile(title: "本月", value: Fmt.money(thisMonth), systemImage: "calendar", tint: .pink)
-            StatTile(title: "今年", value: Fmt.money(thisYear), systemImage: "calendar.badge.clock", tint: .purple)
+        return HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("本月费用（不含油费）")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Text(Fmt.money(thisMonth))
+                    .font(.numeric(40, weight: .bold))
+                    .foregroundStyle(Theme.moneyGradient)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .contentTransition(.numericText())
+                Text("今年 \(Fmt.money(thisYear))")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            MetricIcon(systemName: "creditcard.fill", tint: Theme.money, size: 44)
         }
-        .padding(.vertical, 4)
+        .animation(.snappy, value: thisMonth)
     }
 
     private var monthGroups: [ExpenseMonthGroup] {
@@ -277,7 +294,7 @@ enum CategoryPalette {
         Color(red: 0.55, green: 0.55, blue: 0.60)
     ]
 
-    static let fuelColor = Color(red: 1.0, green: 0.55, blue: 0.0)
+    static let fuelColor = Theme.fuel
 
     static func color(for category: ExpenseCategory?) -> Color {
         guard let category else { return .gray }
@@ -290,9 +307,9 @@ struct UpcomingRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: item.kind == .expense ? "calendar.badge.exclamationmark" : "wrench.and.screwdriver.fill")
-                .foregroundStyle(item.isOverdue ? Color.red : Color.orange)
-                .frame(width: 24)
+            MetricIcon(systemName: item.kind == .expense ? "calendar.badge.exclamationmark" : "wrench.and.screwdriver.fill",
+                       tint: item.isOverdue ? Theme.maxSpeed : Theme.speed,
+                       size: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
                     .font(.subheadline.weight(.semibold))
@@ -346,12 +363,14 @@ struct MonthlyExpenseChart: View {
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("最近 12 个月")
-                        .font(.caption)
+                        .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                     Chart(bars) { bar in
                         BarMark(x: .value("月份", bar.month, unit: .month),
-                                y: .value("金额", bar.amount))
+                                y: .value("金额", bar.amount),
+                                width: .ratio(0.62))
                             .foregroundStyle(by: .value("分类", bar.category))
+                            .cornerRadius(4)
                     }
                     .chartForegroundStyleScale(domain: names, range: colors)
                     .chartXAxis {

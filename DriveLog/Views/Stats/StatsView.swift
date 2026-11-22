@@ -79,14 +79,14 @@ struct StatsView: View {
 
             Section("概览") {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    StatTile(title: "总花费", value: Fmt.money(data.totalCost), systemImage: "creditcard.fill", tint: .pink)
-                    StatTile(title: "每公里成本", value: data.costPerKm.map { Fmt.money($0) } ?? "—", systemImage: "road.lanes", tint: .blue)
-                    StatTile(title: "油费", value: Fmt.money(data.fuelCost), systemImage: "fuelpump.fill", tint: .orange)
-                    StatTile(title: "其他费用", value: Fmt.money(data.otherCost), systemImage: "wrench.and.screwdriver.fill", tint: .purple)
-                    StatTile(title: "总里程", value: Fmt.km(data.distanceKm), systemImage: "map.fill", tint: .green)
-                    StatTile(title: "平均油耗", value: Fmt.economy(data.averageEconomy), systemImage: "gauge.with.dots.needle.33percent", tint: .orange)
-                    StatTile(title: "加油量", value: String(format: "%.1f L", data.liters), systemImage: "drop.fill", tint: .teal)
-                    StatTile(title: "行程", value: "\(data.tripCount) 段", systemImage: "car.fill", tint: .indigo)
+                    StatTile(title: "总花费", value: Fmt.money(data.totalCost), systemImage: "creditcard.fill", tint: Theme.money)
+                    StatTile(title: "每公里成本", value: data.costPerKm.map { Fmt.money($0) } ?? "—", systemImage: "road.lanes", tint: Theme.distance)
+                    StatTile(title: "油费", value: Fmt.money(data.fuelCost), systemImage: "fuelpump.fill", tint: Theme.fuel)
+                    StatTile(title: "其他费用", value: Fmt.money(data.otherCost), systemImage: "wrench.and.screwdriver.fill", tint: Theme.duration)
+                    StatTile(title: "总里程", value: Fmt.km(data.distanceKm), systemImage: "map.fill", tint: Theme.distance)
+                    StatTile(title: "平均油耗", value: Fmt.economy(data.averageEconomy), systemImage: "gauge.with.dots.needle.33percent", tint: Theme.fuel)
+                    StatTile(title: "加油量", value: String(format: "%.1f L", data.liters), systemImage: "drop.fill", tint: Theme.accentSecondary)
+                    StatTile(title: "行程", value: "\(data.tripCount) 段", systemImage: "car.fill", tint: Theme.altitude)
                 }
                 .padding(.vertical, 4)
                 Text("每公里成本 = （油费 + 其他费用）÷ 记录的行程里程。")
@@ -101,8 +101,8 @@ struct StatsView: View {
                 } else {
                     Chart(data.breakdown) { item in
                         SectorMark(angle: .value("金额", item.amount),
-                                   innerRadius: .ratio(0.58),
-                                   angularInset: 1.5)
+                                   innerRadius: .ratio(0.62),
+                                   angularInset: 2)
                             .foregroundStyle(item.color)
                             .cornerRadius(3)
                     }
@@ -138,10 +138,12 @@ struct StatsView: View {
             Section(periodKind == .year ? "每月花费" : "最近 12 个月花费") {
                 Chart(data.monthlyCosts) { item in
                     BarMark(x: .value("月份", item.month, unit: .month),
-                            y: .value("金额", item.amount))
+                            y: .value("金额", item.amount),
+                            width: .ratio(0.62))
                         .foregroundStyle(by: .value("类型", item.kind))
+                        .cornerRadius(4)
                 }
-                .chartForegroundStyleScale(domain: ["油费", "其他费用"], range: [CategoryPalette.fuelColor, Color.purple])
+                .chartForegroundStyleScale(domain: ["油费", "其他费用"], range: [Theme.fuel, Theme.money])
                 .chartXAxis {
                     AxisMarks(values: .stride(by: .month, count: 2)) { _ in
                         AxisGridLine()
@@ -155,8 +157,11 @@ struct StatsView: View {
             Section(periodKind == .year ? "每月里程" : "最近 12 个月里程") {
                 Chart(data.monthlyDistance) { item in
                     BarMark(x: .value("月份", item.month, unit: .month),
-                            y: .value("km", item.value))
-                        .foregroundStyle(Color.green.gradient)
+                            y: .value("km", item.value),
+                            width: .ratio(0.62))
+                        .foregroundStyle(LinearGradient(colors: [Theme.distance, Theme.accentSecondary],
+                                                        startPoint: .bottom, endPoint: .top))
+                        .cornerRadius(4)
                 }
                 .chartXAxis {
                     AxisMarks(values: .stride(by: .month, count: 2)) { _ in
@@ -188,6 +193,10 @@ struct StatsView: View {
                 }
             }
         }
+        .appBackground()
+        .animation(Theme.spring, value: periodKind)
+        .animation(Theme.spring, value: anchor)
+        .animation(Theme.spring, value: vehicleID)
         .navigationTitle("统计")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

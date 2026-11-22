@@ -38,6 +38,7 @@ struct FuelListView: View {
                 } else {
                     Section {
                         summary(analysis)
+                            .glassListRow()
                     }
 
                     if vehicleEntries.count >= 2 {
@@ -126,15 +127,33 @@ struct FuelListView: View {
     private func summary(_ analysis: FuelAnalysis) -> some View {
         let totalCost = vehicleEntries.reduce(0) { $0 + $1.totalCost }
         let totalLiters = vehicleEntries.reduce(0) { $0 + $1.liters }
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-            StatTile(title: "平均油耗", value: Fmt.economy(analysis.averageEconomy), systemImage: "gauge.with.dots.needle.33percent", tint: .orange)
-            StatTile(title: "每公里油费", value: analysis.costPerKm.map { Fmt.money($0) } ?? "—", systemImage: "road.lanes", tint: .blue)
-            StatTile(title: "油费合计", value: Fmt.money(totalCost), systemImage: "creditcard", tint: .pink)
-            StatTile(title: "加油量合计", value: String(format: "%.1f L", totalLiters), systemImage: "drop.fill", tint: .teal)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("平均油耗")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(analysis.averageEconomy.map { String(format: "%.1f", $0) } ?? "—")
+                            .font(.numeric(44, weight: .bold))
+                            .foregroundStyle(Theme.fuelGradient)
+                            .contentTransition(.numericText())
+                        Text("L/100km")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                MetricIcon(systemName: "fuelpump.fill", tint: Theme.fuel, size: 44)
+            }
+            HStack(spacing: 10) {
+                StatTile(title: "每公里", value: analysis.costPerKm.map { Fmt.money($0) } ?? "—", systemImage: "road.lanes", tint: Theme.distance)
+                StatTile(title: "油费", value: Fmt.money(totalCost), systemImage: "creditcard.fill", tint: Theme.money)
+                StatTile(title: "加油量", value: String(format: "%.0f L", totalLiters), systemImage: "drop.fill", tint: Theme.fuel)
+            }
         }
-        .padding(.vertical, 4)
+        .animation(.snappy, value: analysis.averageEconomy ?? 0)
     }
-}
 
 struct FuelRow: View {
     let entry: FuelEntry
@@ -143,9 +162,15 @@ struct FuelRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: entry.isFullTank ? "fuelpump.fill" : "fuelpump")
-                .font(.title3)
-                .foregroundStyle(entry.isFullTank ? Color.orange : Color.secondary)
-                .frame(width: 28)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(entry.isFullTank
+                              ? AnyShapeStyle(LinearGradient(colors: [Theme.fuel, Theme.fuel.opacity(0.7)], startPoint: .top, endPoint: .bottom))
+                              : AnyShapeStyle(Color.gray.opacity(0.5)))
+                )
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(Fmt.dateShort.string(from: entry.date))
@@ -167,7 +192,7 @@ struct FuelRow: View {
                     }
                     Spacer()
                     Text(Fmt.money(entry.totalCost))
-                        .font(.headline)
+                        .font(.numeric(17, weight: .bold))
                         .monospacedDigit()
                 }
                 HStack {
@@ -185,7 +210,11 @@ struct FuelRow: View {
                     Spacer()
                     if let economy {
                         Text(Fmt.economy(economy))
-                            .foregroundStyle(.orange)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.fuel)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Theme.fuel.opacity(0.14)))
                     }
                 }
                 .font(.caption)
@@ -202,6 +231,10 @@ struct EconomyTrendChart: View {
     let segments: [FuelSegment]
     let average: Double?
 
+    private var lowerBound: Double {
+        max(0, (segments.map(\.economy).min() ?? 0) - 1)
+    }
+
     var body: some View {
         if segments.isEmpty {
             Text("至少需要两次「加满」的记录才能计算油耗。")
@@ -211,13 +244,21 @@ struct EconomyTrendChart: View {
         } else {
             Chart {
                 ForEach(segments) { segment in
+                    AreaMark(x: .value("日期", segment.endDate),
+                             yStart: .value("底", lowerBound),
+                             yEnd: .value("L/100km", segment.economy))
+                        .interpolationMethod(.monotone)
+                        .foregroundStyle(LinearGradient(colors: [Theme.fuel.opacity(0.28), Theme.fuel.opacity(0.02)],
+                                                        startPoint: .top, endPoint: .bottom))
                     LineMark(x: .value("日期", segment.endDate),
                              y: .value("L/100km", segment.economy))
                         .interpolationMethod(.monotone)
-                        .foregroundStyle(Color.orange)
+                        .foregroundStyle(Theme.fuel)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                     PointMark(x: .value("日期", segment.endDate),
                               y: .value("L/100km", segment.economy))
-                        .foregroundStyle(Color.orange)
+                        .foregroundStyle(Theme.fuel)
+                        .symbolSize(36)
                 }
                 if let average {
                     RuleMark(y: .value("平均", average))
@@ -230,7 +271,7 @@ struct EconomyTrendChart: View {
                         }
                 }
             }
-            .chartYScale(domain: .automatic(includesZero: false))
+            .chartYScale(domain: lowerBound...((segments.map(\.economy).max() ?? 10) + 1))
             .chartYAxisLabel("L/100km")
             .frame(height: 200)
         }

@@ -32,21 +32,33 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: Theme.spacing) {
                     PermissionBanner()
 
-                    if recorder.isRecording {
-                        RecordingPanel(recorder: recorder, vehicleName: recordingVehicleName) {
-                            showStopConfirm = true
+                    Group {
+                        if recorder.isRecording {
+                            RecordingPanel(recorder: recorder, vehicleName: recordingVehicleName) {
+                                showStopConfirm = true
+                            }
+                            .transition(.asymmetric(insertion: .scale(scale: 0.94).combined(with: .opacity),
+                                                    removal: .scale(scale: 0.98).combined(with: .opacity)))
+                        } else if let vehicle = currentVehicle {
+                            IdleHero(vehicle: vehicle,
+                                     vehicles: vehicles,
+                                     odometer: OdometerService.estimate(vehicle: vehicle, trips: trips, fuel: fuelEntries, expenses: expenses),
+                                     onSelectVehicle: { currentVehicleIDString = $0.uuidString },
+                                     onStart: { recorder.startRecording(trigger: .manual) })
+                            .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
+                                                    removal: .opacity))
+                        } else {
+                            addVehiclePrompt
                         }
-                    } else {
-                        idlePanel
                     }
+                    .animation(Theme.spring, value: recorder.isRecording)
 
                     if let vehicle = currentVehicle {
                         VehicleOverviewCard(vehicle: vehicle, trips: trips, fuel: fuelEntries, expenses: expenses)
-                    } else {
-                        addVehiclePrompt
+                            .cardScrollEffect()
                     }
 
                     let upcoming = ReminderEngine.upcomingItems(expenses: expenses, reminders: reminders,
@@ -54,22 +66,28 @@ struct HomeView: View {
                                                                 trips: trips, fuel: fuelEntries)
                     if !upcoming.isEmpty {
                         upcomingCard(Array(upcoming.prefix(4)))
+                            .cardScrollEffect()
                     }
 
                     if let last = trips.first {
                         NavigationLink {
                             TripDetailView(trip: last)
                         } label: {
-                            lastTripCard(last)
+                            LastTripCard(trip: last)
                         }
                         .buttonStyle(.plain)
+                        .cardScrollEffect()
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
             }
+            .scrollIndicators(.hidden)
             .background { AppBackground() }
             .navigationTitle("行车记录")
+            .sensoryFeedback(.impact(weight: .heavy), trigger: recorder.isRecording)
+            .sensoryFeedback(.success, trigger: recorder.lastSavedTripID)
             .confirmationDialog("停止记录并保存这段行程？", isPresented: $showStopConfirm, titleVisibility: .visible) {
                 Button("停止并保存", role: .destructive) {
                     recorder.stopRecording(trigger: .manual)
@@ -82,112 +100,145 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - 没在记录
-
-    private var idlePanel: some View {
-        VStack(spacing: 14) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("未在记录")
-                        .font(.headline)
-                    Text("连上 CarPlay 时快捷指令会自动开始，也可以手动开始。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-
-            if vehicles.count > 1 {
-                Menu {
-                    ForEach(vehicles) { vehicle in
-                        Button {
-                            currentVehicleIDString = vehicle.id.uuidString
-                        } label: {
-                            if vehicle.id == currentVehicle?.id {
-                                Label(vehicle.displayName, systemImage: "checkmark")
-                            } else {
-                                Text(vehicle.displayName)
-                            }
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "car.fill")
-                        Text("当前车辆：\(currentVehicle?.displayName ?? "未选择")")
-                        Spacer()
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.caption)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .glassCapsule(interactive: true)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Button {
-                recorder.startRecording(trigger: .manual)
-            } label: {
-                Label("开始记录", systemImage: "play.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-            }
-            .glassButtonStyle(prominent: true)
-            .controlSize(.large)
-        }
-        .card()
-    }
+    // MARK: - 没有车辆
 
     private var addVehiclePrompt: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("还没有车辆", systemImage: "car.badge.gearshape")
-                .font(.headline)
-            Text("添加车辆后，新行程会自动归到「当前车辆」，并可以记录加油和费用。")
+        VStack(spacing: 14) {
+            Image(systemName: "car.side.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(Theme.brandGradient)
+                .padding(.top, 6)
+            Text("添加你的第一辆车")
+                .font(.title3.weight(.semibold))
+            Text("新行程会自动归到「当前车辆」，还可以记录加油、费用和保养。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
             Button {
                 showAddVehicle = true
             } label: {
                 Label("添加车辆", systemImage: "plus")
+                    .font(.headline)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
             }
             .glassButtonStyle(prominent: true)
+            .controlSize(.large)
         }
-        .card()
+        .frame(maxWidth: .infinity)
+        .card(padding: 22)
     }
 
     private func upcomingCard(_ items: [UpcomingItem]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("即将到期")
-                    .font(.headline)
-                Spacer()
+        VStack(alignment: .leading, spacing: 12) {
+            CardHeader(title: "即将到期", systemImage: "bell.badge.fill", tint: Theme.speed) {
                 NavigationLink {
                     MaintenanceListView()
                 } label: {
-                    Text("保养提醒")
-                        .font(.subheadline)
+                    HStack(spacing: 2) {
+                        Text("保养提醒")
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .font(.subheadline)
                 }
             }
             ForEach(items) { item in
                 UpcomingRow(item: item)
+                if item.id != items.last?.id {
+                    Divider().opacity(0.5)
+                }
             }
         }
         .card()
     }
+}
 
-    private func lastTripCard(_ trip: Trip) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("最近行程")
-                    .font(.headline)
+/// 没在记录时的首页主卡片：当前车辆、里程表、圆形开始按钮
+struct IdleHero: View {
+    let vehicle: Vehicle
+    let vehicles: [Vehicle]
+    let odometer: Double
+    let onSelectVehicle: (UUID) -> Void
+    let onStart: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            HStack(spacing: 12) {
+                VehicleAvatar(photoData: vehicle.photoData, size: 52)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(vehicle.displayName)
+                        .font(.title3.weight(.semibold))
+                    Text([vehicle.subtitle, vehicle.plate].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(.tertiary)
+                if vehicles.count > 1 {
+                    Menu {
+                        ForEach(vehicles) { item in
+                            Button {
+                                onSelectVehicle(item.id)
+                            } label: {
+                                if item.id == vehicle.id {
+                                    Label(item.displayName, systemImage: "checkmark")
+                                } else {
+                                    Text(item.displayName)
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "arrow.left.arrow.right")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(width: 36, height: 36)
+                            .glassCircle()
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            TripRow(trip: trip, vehicleName: nil)
+
+            VStack(spacing: 6) {
+                Text("估算里程表")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                OdometerView(value: odometer)
+            }
+
+            ZStack {
+                // 呼吸光圈
+                Circle()
+                    .fill(Theme.accent.opacity(0.35))
+                    .frame(width: 112, height: 112)
+                    .phaseAnimator([false, true]) { content, expanded in
+                        content
+                            .scaleEffect(expanded ? 1.35 : 0.9)
+                            .opacity(expanded ? 0 : 0.8)
+                    } animation: { expanded in
+                        expanded ? Animation.easeOut(duration: 2.2) : nil
+                    }
+                Button(action: onStart) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 28, weight: .bold))
+                        Text("START")
+                            .font(.system(size: 11, weight: .heavy, design: .rounded))
+                            .tracking(1.5)
+                    }
+                    .frame(width: 84, height: 84)
+                }
+                .glassButtonStyle(prominent: true)
+                .buttonBorderShape(.circle)
+                .tint(Theme.accent)
+            }
+            .frame(height: 130)
+
+            Text("连上 CarPlay 会自动开始，断开自动保存")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
-        .card()
+        .frame(maxWidth: .infinity)
+        .card(padding: 20)
     }
 }
 
@@ -200,41 +251,75 @@ struct VehicleOverviewCard: View {
 
     var body: some View {
         let summary = OverviewSummary(vehicle: vehicle, trips: trips, fuel: fuel, expenses: expenses, month: Date())
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                VehicleAvatar(photoData: vehicle.photoData, size: 44)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(vehicle.displayName)
-                        .font(.headline)
-                    Text("估算里程 \(Fmt.odometer(summary.odometer))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
+        VStack(alignment: .leading, spacing: 14) {
+            CardHeader(title: "本月概览", systemImage: "chart.bar.xaxis", tint: Theme.accent) {
                 Text(Fmt.monthTitle.string(from: Date()))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                StatTile(title: "本月花费", value: Fmt.money(summary.monthCost), systemImage: "creditcard.fill", tint: .pink)
-                StatTile(title: "本月里程", value: Fmt.km(summary.monthKm), systemImage: "road.lanes", tint: .blue)
-                StatTile(title: "平均油耗", value: Fmt.economy(summary.averageEconomy), systemImage: "fuelpump.fill", tint: .orange)
-                StatTile(title: "本月行程", value: "\(summary.monthTripCount) 段", systemImage: "map.fill", tint: .green)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                StatTile(title: "本月花费", value: Fmt.money(summary.monthCost), systemImage: "creditcard.fill", tint: Theme.money)
+                StatTile(title: "本月里程", value: Fmt.km(summary.monthKm), systemImage: "road.lanes", tint: Theme.distance)
+                StatTile(title: "平均油耗", value: Fmt.economy(summary.averageEconomy), systemImage: "fuelpump.fill", tint: Theme.fuel)
+                StatTile(title: "本月行程", value: "\(summary.monthTripCount) 段", systemImage: "map.fill", tint: Theme.altitude)
             }
             NavigationLink {
                 StatsView(initialVehicleID: vehicle.id)
             } label: {
                 HStack {
-                    Image(systemName: "chart.pie.fill")
-                    Text("查看详细统计")
+                    Label("详细统计", systemImage: "chart.pie.fill")
                     Spacer()
                     Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.tertiary)
                 }
-                .font(.subheadline)
+                .font(.subheadline.weight(.medium))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .glassCapsule(interactive: true)
             }
+            .buttonStyle(.plain)
         }
         .card()
+    }
+}
+
+/// 最近行程：小地图 + 概要
+struct LastTripCard: View {
+    let trip: Trip
+    @State private var segments: [SpeedSegment] = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            CardHeader(title: "最近行程", systemImage: "clock.arrow.circlepath", tint: Theme.duration) {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.primary.opacity(0.05))
+                if !segments.isEmpty {
+                    TripMapView(segments: segments, start: trip.startCoordinate, end: trip.endCoordinate, lineWidth: 4)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+            }
+            .frame(height: 150)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            TripRow(trip: trip, vehicleName: nil)
+        }
+        .card()
+        .task(id: trip.id) {
+            let id = trip.id
+            let points = await Task.detached(priority: .utility) {
+                TrackStore.readPoints(for: id)
+            }.value
+            let built = TrackAnalysis.segments(for: points, maxPoints: 800)
+            withAnimation(.easeOut(duration: 0.35)) {
+                segments = built
+            }
+        }
     }
 }
 
