@@ -239,10 +239,15 @@ struct ExpenseRow: View {
                         .font(.headline)
                         .monospacedDigit()
                 }
+                let note = expense.notes.trimmingCharacters(in: .whitespacesAndNewlines)
                 HStack {
                     Text(Fmt.dateShort.string(from: expense.date))
                     if !expense.merchant.isEmpty {
                         Text("· \(expense.merchant)")
+                            .lineLimit(1)
+                    }
+                    if !note.isEmpty {
+                        Text("· \(note)")
                             .lineLimit(1)
                     }
                     if expense.receiptData != nil {
@@ -256,13 +261,6 @@ struct ExpenseRow: View {
                 }
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                let note = expense.notes.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !note.isEmpty {
-                    Text(note)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
                 if let due = expense.dueDate, expense.isRecurring {
                     Text(expense.renewed ? "已续费" : "到期 \(Fmt.dateFull.string(from: due))")
                         .font(.caption)
