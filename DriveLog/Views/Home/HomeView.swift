@@ -7,6 +7,8 @@ struct HomeView: View {
     @Query(sort: \Trip.startDate, order: .reverse) private var trips: [Trip]
     @Query(sort: \FuelEntry.date) private var fuelEntries: [FuelEntry]
     @Query(sort: \Expense.date) private var expenses: [Expense]
+    @Query private var reminders: [MaintenanceReminder]
+    @Query(sort: \ExpenseCategory.sortOrder) private var categories: [ExpenseCategory]
     @AppStorage(AppSettings.currentVehicleKey) private var currentVehicleIDString: String = ""
     @AppStorage(AppSettings.currencyKey) private var currencyCode: String = AppSettings.defaultCurrency
 
@@ -45,6 +47,13 @@ struct HomeView: View {
                         VehicleOverviewCard(vehicle: vehicle, trips: trips, fuel: fuelEntries, expenses: expenses)
                     } else {
                         addVehiclePrompt
+                    }
+
+                    let upcoming = ReminderEngine.upcomingItems(expenses: expenses, reminders: reminders,
+                                                                categories: categories, vehicles: vehicles,
+                                                                trips: trips, fuel: fuelEntries)
+                    if !upcoming.isEmpty {
+                        upcomingCard(Array(upcoming.prefix(4)))
                     }
 
                     if let last = trips.first {
@@ -142,6 +151,26 @@ struct HomeView: View {
                 Label("添加车辆", systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
+        }
+        .card()
+    }
+
+    private func upcomingCard(_ items: [UpcomingItem]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("即将到期")
+                    .font(.headline)
+                Spacer()
+                NavigationLink {
+                    MaintenanceListView()
+                } label: {
+                    Text("保养提醒")
+                        .font(.subheadline)
+                }
+            }
+            ForEach(items) { item in
+                UpcomingRow(item: item)
+            }
         }
         .card()
     }

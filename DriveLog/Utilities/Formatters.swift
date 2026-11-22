@@ -88,6 +88,11 @@ enum Fmt {
 
     static var currencySymbol: String { AppSettings.currency.symbol }
 
+    /// 油价（每升）保留 3 位小数
+    static func unitPrice(_ value: Double) -> String {
+        "\(AppSettings.currency.symbol)\(String(format: "%.3f", value))"
+    }
+
     static func economy(_ litersPer100km: Double?) -> String {
         guard let v = litersPer100km, v.isFinite else { return "—" }
         return String(format: "%.1f L/100km", v)

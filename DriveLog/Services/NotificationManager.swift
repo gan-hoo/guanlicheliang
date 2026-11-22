@@ -51,6 +51,24 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    /// 用新的计划替换某个前缀下的所有待发通知
+    func replacePending(prefix: String, with planned: [PlannedNotification]) {
+        center.getPendingNotificationRequests { requests in
+            let center = UNUserNotificationCenter.current()
+            let ids = requests.map(\.identifier).filter { $0.hasPrefix(prefix) }
+            center.removePendingNotificationRequests(withIdentifiers: ids)
+            for item in planned {
+                let content = UNMutableNotificationContent()
+                content.title = item.title
+                content.body = item.body
+                content.sound = .default
+                let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: item.date)
+                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                center.add(UNNotificationRequest(identifier: item.identifier, content: content, trigger: trigger))
+            }
+        }
+    }
+
     /// 删除某个前缀的所有待发通知，然后执行 completion
     func removePending(prefix: String, completion: @escaping () -> Void) {
         center.getPendingNotificationRequests { requests in
