@@ -1,0 +1,87 @@
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'claude/**'
+    paths-ignore:
+      - '**.md'
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build DriveLog.ipa
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (Release · iphoneos · unsigned)
+        run: |
+          mkdir -p build
+          if ! xcodebuild \
+              -project DriveLog.xcodeproj \
+              -scheme DriveLog \
+              -configuration Release \
+              -sdk iphoneos \
+              -destination 'generic/platform=iOS' \
+              -derivedDataPath build/DerivedData \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              build > build/xcodebuild.log 2>&1; then
+            echo "================ BUILD FAILED ================"
+            tail -n 60 build/xcodebuild.log
+            echo "================ ERRORS ================"
+            grep -E "(error|fatal error):" build/xcodebuild.log | sort -u | head -n 150
+            exit 1
+          fi
+          echo "================ WARNINGS (unique) ================"
+          grep -E "warning:" build/xcodebuild.log | grep -v "appintentsmetadataprocessor" | sort -u | head -n 80 || true
+          tail -n 3 build/xcodebuild.log
+
+      - name: Package IPA
+        run: |
+          APP_PATH="build/DerivedData/Build/Products/Release-iphoneos/DriveLog.app"
+          test -d "$APP_PATH"
+          rm -rf Payload DriveLog.ipa
+          mkdir Payload
+          cp -R "$APP_PATH" Payload/
+          zip -qry DriveLog.ipa Payload
+          ls -lh DriveLog.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DriveLog-ipa-${{ github.run_number }}
+          path: DriveLog.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log-${{ github.run_number }}
+          path: build/xcodebuild.log
+          if-no-files-found: ignore
+          retention-days: 7

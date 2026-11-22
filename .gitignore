@@ -1,0 +1,15 @@
+# XcodeGen 生成的文件（每次由 project.yml 重新生成）
+*.xcodeproj
+*.xcworkspace
+Config/Info.plist
+
+# 构建产物
+build/
+DerivedData/
+Payload/
+*.ipa
+
+# 系统 / 编辑器
+.DS_Store
+xcuserdata/
+*.swp

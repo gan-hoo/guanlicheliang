@@ -1,0 +1,71 @@
+name: DriveLog
+
+options:
+  bundleIdPrefix: io.github.ganhoo
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: zh-Hans
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+
+targets:
+  DriveLog:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: DriveLog
+    info:
+      path: Config/Info.plist
+      properties:
+        CFBundleDisplayName: 行车记录
+        CFBundleDevelopmentRegion: zh-Hans
+        CFBundleLocalizations:
+          - zh-Hans
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIBackgroundModes:
+          - location
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        NSLocationWhenInUseUsageDescription: 行车记录需要使用你的位置来记录行驶路线、距离和速度。
+        NSLocationAlwaysAndWhenInUseUsageDescription: 为了在连接 CarPlay 时由快捷指令在后台自动开始记录行程（手机锁屏、App 未打开也能记录），请选择「始终」允许访问位置，并打开「精确位置」。
+        NSLocationAlwaysUsageDescription: 为了在后台自动记录行程，请选择「始终」允许访问位置。
+        NSPhotoLibraryUsageDescription: 行车记录需要访问相册，以便为车辆或费用收据添加照片。
+        NSPhotoLibraryAddUsageDescription: 行车记录需要将图片保存到相册。
+        NSCameraUsageDescription: 行车记录需要使用相机，为车辆或费用收据拍照。
+    settings:
+      base:
+        PRODUCT_NAME: DriveLog
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.ganhoo.drivelog
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: YES
+        SWIFT_STRICT_CONCURRENCY: minimal
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+
+schemes:
+  DriveLog:
+    build:
+      targets:
+        DriveLog: all
+    run:
+      config: Debug
+    archive:
+      config: Release
