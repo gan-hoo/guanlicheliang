@@ -96,37 +96,10 @@ extension View {
     }
 }
 
-/// 柔和的彩色背景：玻璃需要有内容在后面才看得出折射效果。
-/// 浅色：近白的冷灰底；深色：深海军蓝底，再叠几团模糊的品牌色光斑。
+/// 页面背景：白色（深色模式下跟随系统为黑色）
 struct AppBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
-        let dark = colorScheme == .dark
-        ZStack {
-            (dark ? Color(red: 0.035, green: 0.05, blue: 0.10) : Color(red: 0.948, green: 0.958, blue: 0.985))
-            GeometryReader { proxy in
-                let w = proxy.size.width
-                let h = proxy.size.height
-                ZStack {
-                    glow(Theme.accent, opacity: dark ? 0.38 : 0.26, size: w * 1.05)
-                        .position(x: w * 0.08, y: h * 0.04)
-                    glow(Theme.accentSecondary, opacity: dark ? 0.24 : 0.20, size: w * 0.85)
-                        .position(x: w * 0.98, y: h * 0.30)
-                    glow(Color(red: 0.55, green: 0.36, blue: 0.95), opacity: dark ? 0.26 : 0.14, size: w * 0.95)
-                        .position(x: w * 0.10, y: h * 0.72)
-                    glow(Theme.fuel, opacity: dark ? 0.14 : 0.12, size: w * 0.75)
-                        .position(x: w * 0.92, y: h * 0.98)
-                }
-            }
-        }
-        .ignoresSafeArea()
-    }
-
-    private func glow(_ color: Color, opacity: Double, size: CGFloat) -> some View {
-        Circle()
-            .fill(color.opacity(opacity))
-            .frame(width: size, height: size)
-            .blur(radius: size * 0.22)
+        Color(uiColor: .systemBackground)
+            .ignoresSafeArea()
     }
 }
