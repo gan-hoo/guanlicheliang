@@ -194,7 +194,7 @@ struct MaintenanceEditView: View {
                                         intervalKmText = preset.km > 0 ? "\(preset.km)" : ""
                                         intervalMonthsText = preset.months > 0 ? "\(preset.months)" : ""
                                     }
-                                    .buttonStyle(.bordered)
+                                    .glassButtonStyle()
                                 }
                             }
                         }
@@ -230,7 +230,7 @@ struct MaintenanceEditView: View {
                                 lastDoneOdometerText = Fmt.plain(estimate.rounded(), decimals: 0)
                             }
                         }
-                        .buttonStyle(.bordered)
+                        .glassButtonStyle()
                         .controlSize(.small)
                     }
                 }

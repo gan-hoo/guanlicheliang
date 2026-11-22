@@ -3,6 +3,7 @@
 一个自用的 iPhone App：**连上 CarPlay 自动开始记录行程，断开自动停止并保存**，同时管理多辆车的加油、用车费用、保养提醒和统计。
 
 - iOS 17+，SwiftUI + SwiftData + Swift Charts + MapKit，**不用任何第三方库**
+- 界面使用 Apple **Liquid Glass（液态玻璃）**：用 Xcode 26 / iOS 26 SDK 编译，在 iOS 26 上 Tab 栏、导航栏、按钮、卡片、地图浮层都是玻璃效果；iOS 17–25 上自动退回毛玻璃
 - 只有一个 App target，没有 widget / extension，不需要付费开发者账号
 - 用 GitHub Actions（macOS）编译出**未签名 IPA**，在 Windows 上用 **Sideloadly + 免费 Apple ID** 安装
 
@@ -36,6 +37,7 @@
 | 加油 | 三选二自动算（加油量 / 单价 / 总价）、默认估算里程和上次油价、当前定位 + 附近加油站；「满箱到满箱」油耗、漏记处理、每公里油费、油价/油耗走势图 |
 | 费用 | 13 个默认分类（可增删改名换图标）、收据照片、常用商家自动补全；周期性费用（保险、rego…）到期前通知、一键续费；保养提醒（按日期或里程） |
 | 统计 | 按月/按年/按车辆：总花费、分类占比饼图、每公里总成本、总里程、油耗趋势；首页概览卡片 |
+| 界面 | Liquid Glass：浮动玻璃 Tab 栏（向下滚动自动缩小）、玻璃卡片和按钮、地图上的玻璃图例与按钮、彩色背景 |
 | 导出/备份 | 每段行程自动生成 GPX + 原始 CSV；加油/费用/行程概要导出 CSV；一键备份全部数据为一个文件，可完整恢复 |
 
 ---
@@ -287,7 +289,9 @@ GPS 轨迹点不进数据库，单独存为文件，每行：
 
 ### 编译设置
 
+- Actions 自动选用 runner 上最新的 Xcode 26（Liquid Glass 需要 iOS 26 SDK）
 - `SWIFT_VERSION = 5.0`，`SWIFT_STRICT_CONCURRENCY = minimal`（避免 Swift 6 严格并发报错）
+- 玻璃效果集中在 `Views/Components/Glass.swift`（`glassCard`、`glassButtonStyle`、`glassCapsule` 等），用 `#available(iOS 26, *)` 判断，旧系统退回材质背景
 - 部署目标 iOS 17.0，仅 iPhone，竖屏
 - Info.plist：`UIBackgroundModes = location`、中文的定位/相册/相机权限说明、`UIFileSharingEnabled`、`LSSupportsOpeningDocumentsInPlace`
 - 本地编译（有 Mac 时）：`brew install xcodegen && xcodegen generate && open DriveLog.xcodeproj`

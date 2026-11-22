@@ -82,6 +82,7 @@ struct FuelListView: View {
                     }
                 }
             }
+            .appBackground()
             .navigationTitle("加油")
             .toolbar {
                 if vehicles.count > 1 {

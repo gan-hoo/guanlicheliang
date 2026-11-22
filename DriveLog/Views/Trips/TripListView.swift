@@ -68,6 +68,7 @@ struct TripListView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .appBackground()
             .navigationTitle("行程")
             .toolbar {
                 if vehicles.count > 1 {

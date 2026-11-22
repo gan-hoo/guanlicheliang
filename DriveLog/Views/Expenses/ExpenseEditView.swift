@@ -149,7 +149,7 @@ struct ExpenseEditView: View {
                         Button("估算") {
                             fillEstimatedOdometer()
                         }
-                        .buttonStyle(.bordered)
+                        .glassButtonStyle()
                         .controlSize(.small)
                     }
                 }

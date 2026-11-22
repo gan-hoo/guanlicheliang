@@ -21,9 +21,8 @@ struct TripDetailView: View {
         List {
             Section {
                 mapArea
-                    .frame(height: 300)
+                    .frame(height: 320)
                     .listRowInsets(EdgeInsets())
-                SpeedLegendView()
             }
 
             Section("概要") {
@@ -151,10 +150,19 @@ struct TripDetailView: View {
                         showFullMap = true
                     } label: {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
-                            .padding(8)
-                            .background(.regularMaterial, in: Circle())
+                            .font(.body.weight(.semibold))
+                            .frame(width: 40, height: 40)
+                            .glassCircle()
                     }
+                    .buttonStyle(.plain)
                     .padding(10)
+                }
+                .overlay(alignment: .bottom) {
+                    SpeedLegendView()
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .glassCapsule()
+                        .padding(10)
                 }
         }
     }

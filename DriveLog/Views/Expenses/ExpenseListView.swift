@@ -54,7 +54,7 @@ struct ExpenseListView: View {
                                         Button("续费") {
                                             renewingExpense = expense
                                         }
-                                        .buttonStyle(.bordered)
+                                        .glassButtonStyle()
                                         .controlSize(.small)
                                     }
                                 }
@@ -108,6 +108,7 @@ struct ExpenseListView: View {
                     }
                 }
             }
+            .appBackground()
             .navigationTitle("费用")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

@@ -68,7 +68,7 @@ struct HomeView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background { AppBackground() }
             .navigationTitle("行车记录")
             .confirmationDialog("停止记录并保存这段行程？", isPresented: $showStopConfirm, titleVisibility: .visible) {
                 Button("停止并保存", role: .destructive) {
@@ -118,8 +118,9 @@ struct HomeView: View {
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.caption)
                     }
-                    .padding(12)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color(uiColor: .tertiarySystemFill)))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .glassCapsule(interactive: true)
                 }
                 .buttonStyle(.plain)
             }
@@ -132,7 +133,7 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
             }
-            .buttonStyle(.borderedProminent)
+            .glassButtonStyle(prominent: true)
             .controlSize(.large)
         }
         .card()
@@ -150,7 +151,7 @@ struct HomeView: View {
             } label: {
                 Label("添加车辆", systemImage: "plus")
             }
-            .buttonStyle(.borderedProminent)
+            .glassButtonStyle(prominent: true)
         }
         .card()
     }

@@ -1,24 +1,22 @@
 import SwiftUI
 import UIKit
 
-/// 卡片背景
+/// 卡片：Liquid Glass（iOS 26）/ 毛玻璃（旧系统）
 struct CardBackground: ViewModifier {
     var padding: CGFloat = 16
+    var tint: Color? = nil
 
     func body(content: Content) -> some View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
-            )
+            .glassCard(cornerRadius: 26, tint: tint)
     }
 }
 
 extension View {
-    func card(padding: CGFloat = 16) -> some View {
-        modifier(CardBackground(padding: padding))
+    func card(padding: CGFloat = 16, tint: Color? = nil) -> some View {
+        modifier(CardBackground(padding: padding, tint: tint))
     }
 }
 
@@ -137,7 +135,7 @@ struct SuggestionChips: View {
                                 .font(.subheadline)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
-                                .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+                                .glassCapsule(tint: Color.accentColor.opacity(0.15), interactive: true)
                         }
                         .buttonStyle(.plain)
                     }

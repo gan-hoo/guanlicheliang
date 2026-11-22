@@ -20,6 +20,7 @@ struct RootView: View {
             GarageView()
                 .tabItem { Label("车辆/设置", systemImage: "car.2") }
         }
+        .minimizeTabBarOnScroll()
         .task {
             SeedData.ensureDefaults(context: context)
             TripRecorder.shared.bootstrap()

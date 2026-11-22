@@ -54,17 +54,17 @@ struct BackupView: View {
                                 Button("存到…") {
                                     exportURL = url
                                 }
-                                .buttonStyle(.bordered)
+                                .glassButtonStyle()
                                 .controlSize(.small)
                                 ShareLink(item: url) {
                                     Image(systemName: "square.and.arrow.up")
                                 }
-                                .buttonStyle(.bordered)
+                                .glassButtonStyle()
                                 .controlSize(.small)
                                 Button("恢复") {
                                     prepareRestore(url: url, securityScoped: false)
                                 }
-                                .buttonStyle(.bordered)
+                                .glassButtonStyle()
                                 .controlSize(.small)
                                 .tint(.orange)
                             }

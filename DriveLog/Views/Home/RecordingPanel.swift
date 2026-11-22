@@ -55,11 +55,11 @@ struct RecordingPanel: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
             }
-            .buttonStyle(.borderedProminent)
+            .glassButtonStyle(prominent: true)
             .tint(.red)
             .controlSize(.large)
         }
-        .card()
+        .card(tint: Color.red.opacity(0.10))
     }
 
     @ViewBuilder
