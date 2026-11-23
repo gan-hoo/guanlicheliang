@@ -10,6 +10,7 @@ struct GarageView: View {
     @Query private var expenses: [Expense]
     @AppStorage(AppSettings.currentVehicleKey) private var currentVehicleIDString: String = ""
     @AppStorage(AppSettings.currencyKey) private var currencyCode: String = AppSettings.defaultCurrency
+    @AppStorage(AppSettings.autoDetectKey) private var autoDetectDriving: Bool = true
     @ObservedObject private var recorder = TripRecorder.shared
 
     @State private var showAddVehicle = false
@@ -55,7 +56,13 @@ struct GarageView: View {
                         Text("左滑删除，右滑设为当前车辆。新行程会自动归到当前车辆。")
                     }
 
-                    Section("自动记录") {
+                    Section {
+                        Toggle(isOn: $autoDetectDriving) {
+                            Label("自动检测驾驶", systemImage: "car.side.fill")
+                        }
+                        .onChange(of: autoDetectDriving) { _, _ in
+                            TripRecorder.shared.updateAutoDetection()
+                        }
                         NavigationLink {
                             ShortcutGuideView()
                         } label: {
@@ -71,6 +78,10 @@ struct GarageView: View {
                                     .foregroundStyle(recorder.hasFullBackgroundPermission ? Color.green : Color.orange)
                             }
                         }
+                    } header: {
+                        Text("自动记录")
+                    } footer: {
+                        Text("自动检测驾驶：忘了点开始、也没连 CarPlay 时，车速持续超过约 20 km/h 会自动开始记录，停车超过 5 分钟自动结束保存。已经在记录时不会重复开始。需要定位权限为「始终」。")
                     }
 
                     Section("数据") {

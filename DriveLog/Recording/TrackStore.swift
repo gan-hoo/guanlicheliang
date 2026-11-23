@@ -38,6 +38,12 @@ enum TrackStore {
         return result
     }
 
+    /// 用给定的点整体覆盖轨迹文件
+    static func overwrite(_ id: UUID, points: [TrackPoint]) {
+        let text = points.map(\.csvLine).joined()
+        try? Data(text.utf8).write(to: url(for: id), options: .atomic)
+    }
+
     static func delete(_ id: UUID) {
         try? FileManager.default.removeItem(at: url(for: id))
     }

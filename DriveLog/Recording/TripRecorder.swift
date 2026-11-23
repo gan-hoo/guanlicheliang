@@ -9,11 +9,16 @@ struct ActiveTripState: Codable {
     var startDate: Date
     var vehicleID: UUID?
     var lastUpdate: Date
+    /// 自动检测开始的行程：停车一段时间后自动结束（nil 视为否，兼容旧状态文件）
+    var autoStop: Bool?
+    /// 最后一次处于行驶速度的时间（自动结束用）
+    var lastDrivingDate: Date?
 }
 
 enum TripTrigger: String {
     case manual = "手动"
     case shortcut = "快捷指令"
+    case auto = "自动检测"
 }
 
 /// 行程记录核心。单例，不依赖任何视图：
@@ -28,6 +33,20 @@ final class TripRecorder: NSObject, ObservableObject {
     static let minimumTripDistance: Double = 100
     /// 超过这个秒数没有新定位，实时速度显示为 0
     static let speedStaleInterval: TimeInterval = 6
+
+    // 自动检测驾驶
+    /// 车速超过约 22 km/h 的定位点达到 3 个，判定为开车
+    static let autoStartSpeed: Double = 6
+    static let autoStartFixes = 3
+    /// 每次唤醒后最多用 GPS 探测 90 秒
+    static let probeDuration: TimeInterval = 90
+    /// 车速超过约 11 km/h 视为仍在行驶
+    static let drivingSpeed: Double = 3
+    /// 自动开始的行程：停车超过 5 分钟自动结束
+    static let autoStopAfter: TimeInterval = 5 * 60
+    /// 停车点周围的地理围栏半径，离开就唤醒 App 探测
+    static let geofenceRadius: CLLocationDistance = 150
+    static let geofenceID = "drivelog.autodetect.lastStop"
 
     enum StartOutcome {
         case started
@@ -69,6 +88,14 @@ final class TripRecorder: NSObject, ObservableObject {
     private var lastStateSave = Date.distantPast
     private var observers: [NSObjectProtocol] = []
 
+    // 自动检测驾驶的探测状态
+    private var isProbing = false
+    private var probeStart = Date.distantPast
+    private var probeFastFixes = 0
+    private var probeBuffer: [TrackPoint] = []
+    private var probeTimer: Timer?
+    private var autoStopTimer: Timer?
+
     private override init() {
         super.init()
         manager.delegate = self
@@ -91,14 +118,21 @@ final class TripRecorder: NSObject, ObservableObject {
         didBootstrap = true
 
         guard let saved = loadState() else {
-            // 没有进行中的行程，确保不会残留 significant change 监听
-            manager.stopMonitoringSignificantLocationChanges()
+            // 没有进行中的行程：按设置开启 / 关闭自动检测驾驶
+            updateAutoDetection()
             return
         }
 
         let points = TrackStore.readPoints(for: saved.id)
         let lastDate = points.last?.timestamp ?? saved.startDate
-        if Date().timeIntervalSince(lastDate) <= Self.resumeWindow {
+        if saved.autoStop == true,
+           Date().timeIntervalSince(saved.lastDrivingDate ?? lastDate) >= Self.autoStopAfter {
+            // 自动开始的行程在 App 被杀期间已经停车超过 5 分钟：直接收尾
+            finalizeTrimmed(state: saved, points: points,
+                            until: saved.lastDrivingDate ?? lastDate,
+                            note: "停车超过 5 分钟，自动结束")
+            updateAutoDetection()
+        } else if Date().timeIntervalSince(lastDate) <= Self.resumeWindow {
             resume(saved, points: points)
         } else {
             var acc = TripAccumulator()
@@ -110,6 +144,7 @@ final class TripRecorder: NSObject, ObservableObject {
                      points: points,
                      endDate: max(lastDate, saved.startDate),
                      note: "上次记录被中断，已自动收尾")
+            updateAutoDetection()
         }
     }
 
@@ -135,6 +170,9 @@ final class TripRecorder: NSObject, ObservableObject {
         publishStats()
         startLocationServices()
         saveState()
+        if saved.autoStop == true {
+            startAutoStopTimer()
+        }
 
         NotificationManager.shared.post(
             title: "已恢复行程记录",
@@ -145,9 +183,19 @@ final class TripRecorder: NSObject, ObservableObject {
     // MARK: - 开始 / 停止
 
     @discardableResult
-    func startRecording(trigger: TripTrigger) -> StartOutcome {
+    func startRecording(trigger: TripTrigger, startDate tripStart: Date? = nil, seed: [TrackPoint] = []) -> StartOutcome {
         bootstrap()
-        if isRecording { return .alreadyRecording }
+        if isRecording {
+            // 已经在记录（例如自动检测开始的）：不重复开始。
+            // CarPlay 连上后由快捷指令负责结束，不再按停车时间自动结束。
+            if trigger == .shortcut, state?.autoStop == true {
+                state?.autoStop = false
+                saveState()
+                autoStopTimer?.invalidate()
+                autoStopTimer = nil
+            }
+            return .alreadyRecording
+        }
 
         refreshAuthorization()
         switch authorizationStatus {
@@ -164,7 +212,13 @@ final class TripRecorder: NSObject, ObservableObject {
         }
 
         let vehicleID = resolvedCurrentVehicleID()
-        let newState = ActiveTripState(id: UUID(), startDate: Date(), vehicleID: vehicleID, lastUpdate: Date())
+        let isAuto = trigger == .auto
+        let newState = ActiveTripState(id: UUID(),
+                                       startDate: tripStart ?? Date(),
+                                       vehicleID: vehicleID,
+                                       lastUpdate: Date(),
+                                       autoStop: isAuto ? true : nil,
+                                       lastDrivingDate: isAuto ? Date() : nil)
         do {
             try TrackStore.createEmpty(for: newState.id)
             writer = try TrackWriter(fileURL: TrackStore.url(for: newState.id))
@@ -172,6 +226,13 @@ final class TripRecorder: NSObject, ObservableObject {
             NotificationManager.shared.post(title: "无法记录行程", body: "创建轨迹文件失败：\(error.localizedDescription)")
             return .failed(error.localizedDescription)
         }
+
+        // 结束自动检测的探测和停车点围栏（记录中不需要）
+        isProbing = false
+        probeTimer?.invalidate()
+        probeTimer = nil
+        probeBuffer = []
+        removeGeofences()
 
         state = newState
         accumulator = TripAccumulator()
@@ -182,18 +243,30 @@ final class TripRecorder: NSObject, ObservableObject {
         currentSpeed = 0
         currentAltitude = nil
         lastFixDate = nil
+        // 自动检测：把探测期间的定位点补进行程，开头那一段不会丢
+        for point in seed {
+            if accumulator.add(point) {
+                writer?.append(point)
+            }
+        }
         publishStats()
         saveState()
         startLocationServices()
+        if isAuto {
+            startAutoStopTimer()
+        }
 
         var body = "车辆：\(vehicleName(for: vehicleID)) · 触发方式：\(trigger.rawValue)"
+        if isAuto {
+            body += "\n没连 CarPlay 时，停车超过 5 分钟会自动结束保存"
+        }
         if authorizationStatus == .authorizedWhenInUse {
             body += "\n⚠️ 定位权限不是「始终」，锁屏或后台时可能无法记录"
         }
         if accuracyAuthorization == .reducedAccuracy {
             body += "\n⚠️「精确位置」已关闭，轨迹会不准"
         }
-        NotificationManager.shared.post(title: "开始记录行程", body: body)
+        NotificationManager.shared.post(title: isAuto ? "自动开始记录行程" : "开始记录行程", body: body)
         return .started
     }
 
@@ -208,6 +281,7 @@ final class TripRecorder: NSObject, ObservableObject {
         let points = TrackStore.readPoints(for: current.id)
         let outcome = finalize(state: current, accumulator: accumulator, points: points, endDate: Date(), note: nil)
         resetLiveState()
+        updateAutoDetection()
         return outcome
     }
 
@@ -285,6 +359,8 @@ final class TripRecorder: NSObject, ObservableObject {
         lastFixDate = nil
         pointCount = 0
         accumulator = TripAccumulator()
+        autoStopTimer?.invalidate()
+        autoStopTimer = nil
     }
 
     private func publishStats() {
@@ -311,12 +387,17 @@ final class TripRecorder: NSObject, ObservableObject {
 
     private func stopLocationServices() {
         manager.stopUpdatingLocation()
-        manager.stopMonitoringSignificantLocationChanges()
+        if !AppSettings.autoDetectDriving {
+            manager.stopMonitoringSignificantLocationChanges()
+        }
         manager.allowsBackgroundLocationUpdates = false
     }
 
     private func handle(_ locations: [CLLocation]) {
-        guard isRecording, let current = state else { return }
+        guard isRecording, let current = state else {
+            handleWhileIdle(locations)
+            return
+        }
         var accepted = false
         let now = Date()
 
@@ -341,9 +422,163 @@ final class TripRecorder: NSObject, ObservableObject {
         if accepted {
             publishStats()
         }
+        if current.autoStop == true {
+            let drivingTimes = locations
+                .filter { $0.speed >= Self.drivingSpeed && $0.horizontalAccuracy >= 0 && $0.horizontalAccuracy <= TripAccumulator.maxHorizontalAccuracy }
+                .map(\.timestamp)
+            if let latest = drivingTimes.max() {
+                state?.lastDrivingDate = latest
+            }
+        }
         if now.timeIntervalSince(lastStateSave) >= 30 {
             saveState()
         }
+        autoStopIfIdle()
+    }
+
+    // MARK: - 自动检测驾驶
+
+    /// 没在记录时：开着自动检测就保持低功耗监听（significant change + 停车点地理围栏），否则全部关闭
+    func updateAutoDetection() {
+        guard !isRecording else { return }
+        let enabled = AppSettings.autoDetectDriving && manager.authorizationStatus == .authorizedAlways
+        if enabled {
+            if CLLocationManager.significantLocationChangeMonitoringAvailable() {
+                manager.startMonitoringSignificantLocationChanges()
+            }
+            if !isProbing {
+                armGeofence(at: manager.location)
+            }
+        } else {
+            if isProbing {
+                endProbe()
+            }
+            manager.stopMonitoringSignificantLocationChanges()
+            removeGeofences()
+        }
+    }
+
+    private func armGeofence(at location: CLLocation?) {
+        removeGeofences()
+        guard let location, CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else { return }
+        let region = CLCircularRegion(center: location.coordinate, radius: Self.geofenceRadius, identifier: Self.geofenceID)
+        region.notifyOnEntry = false
+        region.notifyOnExit = true
+        manager.startMonitoring(for: region)
+    }
+
+    private func removeGeofences() {
+        for region in manager.monitoredRegions where region.identifier == Self.geofenceID {
+            manager.stopMonitoring(for: region)
+        }
+    }
+
+    /// 被唤醒（离开停车点 / 位置明显变化）后，用 GPS 看一下是不是在开车
+    private func beginProbe() {
+        guard !isRecording, !isProbing,
+              AppSettings.autoDetectDriving,
+              manager.authorizationStatus == .authorizedAlways else { return }
+        isProbing = true
+        probeStart = Date()
+        probeFastFixes = 0
+        probeBuffer = []
+        manager.allowsBackgroundLocationUpdates = true
+        manager.showsBackgroundLocationIndicator = false
+        manager.startUpdatingLocation()
+        probeTimer?.invalidate()
+        probeTimer = Timer.scheduledTimer(withTimeInterval: Self.probeDuration + 5, repeats: false) { _ in
+            MainActor.assumeIsolated {
+                TripRecorder.shared.endProbeIfIdle()
+            }
+        }
+    }
+
+    private func handleWhileIdle(_ locations: [CLLocation]) {
+        guard AppSettings.autoDetectDriving, manager.authorizationStatus == .authorizedAlways else { return }
+        guard isProbing else {
+            // significant change 唤醒：开始一次探测
+            beginProbe()
+            return
+        }
+        let now = Date()
+        for location in locations {
+            guard location.horizontalAccuracy >= 0,
+                  location.horizontalAccuracy <= TripAccumulator.maxHorizontalAccuracy,
+                  now.timeIntervalSince(location.timestamp) <= 20 else { continue }
+            probeBuffer.append(TrackPoint(location: location))
+            if location.speed >= Self.autoStartSpeed {
+                probeFastFixes += 1
+            }
+        }
+        probeBuffer.removeAll { now.timeIntervalSince($0.timestamp) > 180 }
+
+        if probeFastFixes >= Self.autoStartFixes {
+            // 从第一次达到车速前 30 秒开始算，开头那一段不丢
+            let firstFast = probeBuffer.first(where: { $0.speed >= Self.autoStartSpeed })?.timestamp ?? now
+            let seed = probeBuffer.filter { $0.timestamp >= firstFast.addingTimeInterval(-30) }
+            startRecording(trigger: .auto, startDate: seed.first?.timestamp ?? now, seed: seed)
+        } else if now.timeIntervalSince(probeStart) > Self.probeDuration {
+            endProbe()
+        }
+    }
+
+    private func endProbeIfIdle() {
+        if isProbing && !isRecording {
+            endProbe()
+        }
+    }
+
+    private func endProbe() {
+        isProbing = false
+        probeTimer?.invalidate()
+        probeTimer = nil
+        probeBuffer = []
+        guard !isRecording else { return }
+        manager.stopUpdatingLocation()
+        manager.allowsBackgroundLocationUpdates = false
+        if AppSettings.autoDetectDriving {
+            armGeofence(at: manager.location)
+        }
+    }
+
+    private func startAutoStopTimer() {
+        autoStopTimer?.invalidate()
+        autoStopTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
+            MainActor.assumeIsolated {
+                TripRecorder.shared.autoStopIfIdle()
+            }
+        }
+    }
+
+    /// 自动开始的行程：停车超过 5 分钟就结束保存，停车之后（例如下车走路）的轨迹会去掉
+    private func autoStopIfIdle() {
+        guard isRecording, let current = state, current.autoStop == true else { return }
+        let lastDriving = current.lastDrivingDate ?? current.startDate
+        guard Date().timeIntervalSince(lastDriving) >= Self.autoStopAfter else { return }
+        stopLocationServices()
+        writer?.close()
+        writer = nil
+        let points = TrackStore.readPoints(for: current.id)
+        finalizeTrimmed(state: current, points: points, until: lastDriving, note: "停车超过 5 分钟，自动结束")
+        resetLiveState()
+        updateAutoDetection()
+    }
+
+    @discardableResult
+    private func finalizeTrimmed(state current: ActiveTripState,
+                                 points: [TrackPoint],
+                                 until: Date,
+                                 note: String) -> StopOutcome {
+        let kept = points.filter { $0.timestamp <= until.addingTimeInterval(5) }
+        if kept.count != points.count {
+            TrackStore.overwrite(current.id, points: kept)
+        }
+        var acc = TripAccumulator()
+        for point in kept {
+            acc.add(point)
+        }
+        return finalize(state: current, accumulator: acc, points: kept,
+                        endDate: max(until, current.startDate), note: note)
     }
 
     // MARK: - 权限
@@ -360,6 +595,9 @@ final class TripRecorder: NSObject, ObservableObject {
         authorizationStatus = manager.authorizationStatus
         accuracyAuthorization = manager.accuracyAuthorization
         refreshLocationServicesEnabled()
+        if didBootstrap {
+            updateAutoDetection()
+        }
     }
 
     private func refreshLocationServicesEnabled() {
@@ -456,6 +694,12 @@ extension TripRecorder: CLLocationManagerDelegate {
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         MainActor.assumeIsolated {
             TripRecorder.shared.refreshAuthorization()
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        MainActor.assumeIsolated {
+            TripRecorder.shared.beginProbe()
         }
     }
 

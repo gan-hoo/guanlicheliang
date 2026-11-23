@@ -14,6 +14,7 @@ enum AppSettings {
     static let currencyKey = "currencyCode"
     static let didSeedCategoriesKey = "didSeedCategories"
     static let didRequestLocationKey = "didRequestLocation"
+    static let autoDetectKey = "autoDetectDriving"
 
     static let defaultCurrency = "AUD"
 
@@ -38,6 +39,11 @@ enum AppSettings {
         set {
             UserDefaults.standard.set(newValue?.uuidString ?? "", forKey: currentVehicleKey)
         }
+    }
+
+    /// 自动检测驾驶（默认开启）
+    static var autoDetectDriving: Bool {
+        UserDefaults.standard.object(forKey: autoDetectKey) as? Bool ?? true
     }
 
     static var currencyCode: String {
