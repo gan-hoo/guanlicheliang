@@ -7,16 +7,14 @@ struct OdometerReading {
     var source: String
 }
 
-/// 估算当前里程：最近一次手动填写的里程表读数 + 之后记录到的行程距离
+/// 估算当前里程：最近一次手动填写的里程表读数 + 之后记录到的行程距离。
+/// 加油记录里的里程表不参与估算（加油记录常常是事后补的，时间和读数对不上），只用来算油耗。
 enum OdometerService {
     static func latestReading(vehicle: Vehicle, fuel: [FuelEntry], expenses: [Expense]) -> OdometerReading {
         let vid = vehicle.id
         var best = OdometerReading(date: vehicle.initialOdometerDate, value: vehicle.initialOdometer, source: "初始读数")
         if let value = vehicle.odometerCalibration, let date = vehicle.odometerCalibrationDate, date >= best.date {
             best = OdometerReading(date: date, value: value, source: "手动校正")
-        }
-        for entry in fuel where entry.vehicleID == vid && entry.odometer > 0 && entry.date >= best.date {
-            best = OdometerReading(date: entry.date, value: entry.odometer, source: "加油记录")
         }
         for expense in expenses where expense.vehicleID == vid && expense.date >= best.date {
             guard let value = expense.odometer, value > 0 else { continue }
