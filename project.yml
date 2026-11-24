@@ -10,9 +10,13 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.5.0"
-    CURRENT_PROJECT_VERSION: "22"
+    MARKETING_VERSION: "1.6.0"
+    CURRENT_PROJECT_VERSION: "23"
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+
+packages:
+  CostKit:
+    path: CostKit
 
 targets:
   DriveLog:
@@ -21,6 +25,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: DriveLog
+    dependencies:
+      - package: CostKit
     info:
       path: Config/Info.plist
       properties:

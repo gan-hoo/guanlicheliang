@@ -32,6 +32,7 @@ enum SeedData {
             defaults.set(true, forKey: AppSettings.didSeedCategoriesKey)
         }
         ensureCurrentVehicle(context: context)
+        CostTypeMigration.run(context: context)
         try? context.save()
     }
 

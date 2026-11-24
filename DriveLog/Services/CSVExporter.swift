@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import CostKit
 
 /// 加油 / 费用 / 行程概要导出成 CSV（UTF-8 带 BOM，Windows Excel 打开中文不乱码）
 @MainActor
@@ -77,7 +78,7 @@ enum CSVExporter {
         let vehicles = (try? context.fetch(FetchDescriptor<Vehicle>())) ?? []
         let categories = (try? context.fetch(FetchDescriptor<ExpenseCategory>())) ?? []
         let currency = AppSettings.currencyCode
-        var rows: [[String]] = [["日期", "车辆", "分类", "金额", "货币", "里程表(km)", "商家", "周期(月)", "到期日", "备注"]]
+        var rows: [[String]] = [["日期", "车辆", "分类", "金额", "货币", "里程表(km)", "商家", "周期(月)", "到期日", "备注", "费用类型", "摊销(月)"]]
         for e in expenses {
             rows.append([
                 dateOnly.string(from: e.date),
@@ -89,7 +90,9 @@ enum CSVExporter {
                 e.merchant,
                 e.recurrenceMonths > 0 ? "\(e.recurrenceMonths)" : "",
                 e.dueDate.map { dateOnly.string(from: $0) } ?? "",
-                e.notes
+                e.notes,
+                e.costType.displayName,
+                e.costType == .fixed ? "\(e.coverage)" : ""
             ])
         }
         return try write(rows, name: "用车费用")

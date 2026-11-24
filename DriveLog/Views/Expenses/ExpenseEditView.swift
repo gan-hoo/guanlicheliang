@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CostKit
 
 /// 新增 / 编辑 / 续费 一条费用
 struct ExpenseEditView: View {
@@ -31,6 +32,9 @@ struct ExpenseEditView: View {
     @State private var renewed = false
     @State private var didLoad = false
     @State private var userTouchedRecurrence = false
+    @State private var costType: CostType = .running
+    @State private var coverageMonths = CostType.defaultCoverageMonths
+    @State private var userTouchedCostType = false
     @FocusState private var amountFocused: Bool
 
     struct RecurrenceOption: Hashable {
@@ -131,6 +135,35 @@ struct ExpenseEditView: View {
                         }
                     }
                     .padding(.vertical, 4)
+                }
+
+                Section {
+                    Picker("费用类型", selection: Binding(
+                        get: { costType },
+                        set: { newValue in
+                            userTouchedCostType = true
+                            costType = newValue
+                        })) {
+                        ForEach(CostType.allCases, id: \.self) { type in
+                            Text(type.displayName).tag(type)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    if costType == .fixed {
+                        Stepper(value: $coverageMonths, in: 1...120) {
+                            HStack {
+                                Text("摊销月数")
+                                Spacer()
+                                Text("\(coverageMonths) 个月")
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("费用类型")
+                } footer: {
+                    Text("运行费用按发生月份计入；固定费用从费用日期起按月摊销；一次性支出不计入月/年统计，计入「购车总投入」。")
                 }
 
                 Section {
@@ -245,6 +278,9 @@ struct ExpenseEditView: View {
             remindDaysBefore = expense.remindDaysBefore
             renewed = expense.renewed
             userTouchedRecurrence = true
+            costType = expense.costType
+            coverageMonths = expense.coverage
+            userTouchedCostType = true
         } else if let renewing {
             vehicleID = renewing.vehicleID
             categoryID = renewing.categoryID
@@ -257,15 +293,23 @@ struct ExpenseEditView: View {
             let base = renewing.dueDate ?? Date()
             dueDate = Calendar.current.date(byAdding: .month, value: recurrenceMonths, to: base) ?? base
             userTouchedRecurrence = true
+            costType = renewing.costType
+            coverageMonths = renewing.coverage
+            userTouchedCostType = true
         } else {
             vehicleID = defaultVehicleID ?? vehicles.first?.id
             categoryID = categories.first?.id
+            costType = CostType.suggested(forCategoryName: categories.first?.name)
             amountFocused = true
         }
     }
 
     /// 保险、注册费、年检默认每年一次
     private func applyCategoryDefaults(_ category: ExpenseCategory) {
+        // 新费用按分类预选费用类型（用户手动改过就不再覆盖）
+        if isNew, renewing == nil, !userTouchedCostType {
+            costType = CostType.suggested(forCategoryName: category.name)
+        }
         guard isNew, renewing == nil, !userTouchedRecurrence else { return }
         let yearly = ["保险", "注册", "rego", "年检"]
         recurrenceMonths = yearly.contains(where: { category.name.localizedCaseInsensitiveContains($0) }) ? 12 : 0
@@ -307,6 +351,8 @@ struct ExpenseEditView: View {
         target.reminderEnabled = recurrenceMonths > 0 && reminderEnabled
         target.remindDaysBefore = remindDaysBefore
         target.renewed = recurrenceMonths > 0 ? renewed : false
+        target.costType = costType
+        target.coverageMonths = costType == .fixed ? coverageMonths : nil
         if let renewing {
             renewing.renewed = true
         }

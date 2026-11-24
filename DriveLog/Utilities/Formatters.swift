@@ -93,6 +93,12 @@ enum Fmt {
         "\(AppSettings.currency.symbol)\(String(format: "%.3f", value))"
     }
 
+    /// 每公里成本 "$0.155/km"，没有数据显示「—」
+    static func perKm(_ value: Double?) -> String {
+        guard let value, value.isFinite else { return "—" }
+        return "\(AppSettings.currency.symbol)\(String(format: "%.3f", value))/km"
+    }
+
     static func economy(_ litersPer100km: Double?) -> String {
         guard let v = litersPer100km, v.isFinite else { return "—" }
         return String(format: "%.1f L/100km", v)

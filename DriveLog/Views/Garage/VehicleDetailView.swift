@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CostKit
 
 struct VehicleDetailView: View {
     @Bindable var vehicle: Vehicle
@@ -83,6 +84,7 @@ struct VehicleDetailView: View {
                     InfoRow(title: "平均油耗", value: Fmt.economy(analysis.averageEconomy))
                     InfoRow(title: "油费合计", value: Fmt.money(vehicleFuel.reduce(0) { $0 + $1.totalCost }))
                     InfoRow(title: "其他费用合计", value: Fmt.money(vehicleExpenses.reduce(0) { $0 + $1.amount }))
+                    InfoRow(title: "购车总投入", value: Fmt.money(CostCalculator.oneOffTotal(vehicleExpenses.map(\.costItem))))
                     NavigationLink {
                         StatsView(initialVehicleID: vehicle.id)
                     } label: {

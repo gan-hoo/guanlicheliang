@@ -26,6 +26,8 @@ struct StatTile: View {
     let value: String
     var systemImage: String? = nil
     var tint: Color = .accentColor
+    /// 数值下方的小字说明（如「里程较少，仅供参考」）
+    var note: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -37,6 +39,7 @@ struct StatTile: View {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             Text(value)
                 .font(.numeric(19, weight: .bold))
@@ -45,6 +48,12 @@ struct StatTile: View {
                 .minimumScaleFactor(0.55)
                 .contentTransition(.numericText())
                 .animation(.snappy, value: value)
+            if let note {
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)

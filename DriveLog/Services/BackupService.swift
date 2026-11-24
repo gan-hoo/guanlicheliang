@@ -78,6 +78,9 @@ struct ExpenseDTO: Codable {
     var remindDaysBefore: Int
     var reminderEnabled: Bool
     var renewed: Bool
+    /// 1.6 起新增；旧备份没有这两个字段，解码为 nil，恢复后由 CostTypeMigration 按分类补上
+    var costTypeRaw: String?
+    var coverageMonths: Int?
 }
 
 struct CategoryDTO: Codable {
@@ -312,7 +315,8 @@ enum BackupService {
                 ExpenseDTO(id: e.id, vehicleID: e.vehicleID, categoryID: e.categoryID, date: e.date, amount: e.amount,
                            odometer: e.odometer, merchant: e.merchant, notes: e.notes, hasReceipt: e.receiptData != nil,
                            recurrenceMonths: e.recurrenceMonths, dueDate: e.dueDate, remindDaysBefore: e.remindDaysBefore,
-                           reminderEnabled: e.reminderEnabled, renewed: e.renewed)
+                           reminderEnabled: e.reminderEnabled, renewed: e.renewed,
+                           costTypeRaw: e.costTypeRaw, coverageMonths: e.coverageMonths)
             },
             categories: categories.map { c in
                 CategoryDTO(id: c.id, name: c.name, iconName: c.iconName, sortOrder: c.sortOrder)
@@ -488,6 +492,8 @@ enum BackupService {
             e.remindDaysBefore = d.remindDaysBefore
             e.reminderEnabled = d.reminderEnabled
             e.renewed = d.renewed
+            e.costTypeRaw = d.costTypeRaw
+            e.coverageMonths = d.coverageMonths
             context.insert(e)
         }
         for d in manifest.reminders {
@@ -509,6 +515,7 @@ enum BackupService {
         AppSettings.currencyCode = manifest.currencyCode
         AppSettings.currentVehicleID = manifest.currentVehicleID
         SeedData.ensureCurrentVehicle(context: context)
+        CostTypeMigration.run(context: context)
         ReminderEngine.rescheduleAll(context: context)
 
         // 4. 后台重新生成每段行程的 GPX / CSV

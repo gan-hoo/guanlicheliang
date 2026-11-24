@@ -40,6 +40,9 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
+      - name: Unit tests (CostKit)
+        run: swift test --package-path CostKit
+
       - name: Install XcodeGen
         run: brew install xcodegen
 

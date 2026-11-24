@@ -13,3 +13,7 @@ Payload/
 .DS_Store
 xcuserdata/
 *.swp
+
+# Swift Package 构建产物
+CostKit/.build/
+.swiftpm/

@@ -1,4 +1,5 @@
 import Foundation
+import CostKit
 
 /// 一段「满箱到满箱」
 struct FuelSegment: Identifiable {
@@ -35,42 +36,37 @@ struct FuelAnalysis {
     }
 }
 
-/// 油耗用「满箱到满箱」法：两次加满之间（不含上一次、含这一次）的所有加油量 ÷ 这段里程。
-/// 中间任何一次标记了「上次漏记」，这一段就不算。
+/// 油耗用「满箱到满箱」法（计算在 CostKit 里，有单元测试）：
+/// 相邻两次加满之间，后一次加满 + 中间所有未加满的油量 ÷ 里程表差。
+/// 中间任何一次标记了「上次漏记」或缺里程表，这一段就不算。
 enum FuelEconomy {
     static func analyze(entries: [FuelEntry]) -> FuelAnalysis {
-        let sorted = entries.sorted { lhs, rhs in
-            if lhs.date != rhs.date { return lhs.date < rhs.date }
-            return lhs.odometer < rhs.odometer
+        let intervals = CostCalculator.fuelIntervals(entries.map(\.fuelFill))
+        let segments = intervals.map { interval in
+            FuelSegment(id: interval.endFillID,
+                        startDate: interval.startDate,
+                        endDate: interval.endDate,
+                        distanceKm: interval.distanceKm,
+                        liters: interval.liters,
+                        cost: interval.cost)
         }
-        var segments: [FuelSegment] = []
         var economyByEntry: [UUID: Double] = [:]
-        var lastFullIndex: Int?
-
-        for index in sorted.indices {
-            let entry = sorted[index]
-            guard entry.isFullTank else { continue }
-            if let start = lastFullIndex {
-                let range = sorted[(start + 1)...index]
-                let hasMissed = range.contains { $0.missedPrevious }
-                let distance = entry.odometer - sorted[start].odometer
-                if !hasMissed && distance > 0 {
-                    let liters = range.reduce(0) { $0 + $1.liters }
-                    let cost = range.reduce(0) { $0 + $1.totalCost }
-                    let economy = liters / distance * 100
-                    if liters > 0 && economy > 0.5 && economy < 100 {
-                        segments.append(FuelSegment(id: entry.id,
-                                                    startDate: sorted[start].date,
-                                                    endDate: entry.date,
-                                                    distanceKm: distance,
-                                                    liters: liters,
-                                                    cost: cost))
-                        economyByEntry[entry.id] = economy
-                    }
-                }
-            }
-            lastFullIndex = index
+        for interval in intervals {
+            economyByEntry[interval.endFillID] = interval.economy
         }
         return FuelAnalysis(segments: segments, economyByEntryID: economyByEntry)
+    }
+}
+
+extension FuelEntry {
+    /// 给 CostKit 用的加油数据
+    var fuelFill: FuelFill {
+        FuelFill(id: id,
+                 date: date,
+                 odometer: odometer > 0 ? odometer : nil,
+                 liters: liters,
+                 cost: totalCost,
+                 isFullTank: isFullTank,
+                 missedPrevious: missedPrevious)
     }
 }
