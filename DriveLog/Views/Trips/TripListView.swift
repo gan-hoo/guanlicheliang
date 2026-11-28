@@ -9,6 +9,10 @@ struct TripListView: View {
     @State private var filterVehicleID: UUID?
     @State private var timeRange: TimeRange = .all
     @State private var displayMode: DisplayMode = .all
+    /// 「某一天」筛选选中的日期
+    @State private var selectedDay = Date()
+    @State private var showDayPicker = false
+    @State private var pickedDay = Date()
 
     /// 分段控件：全部卡片 / 只看汇总卡（上面的玻璃卡片）
     enum DisplayMode: String, CaseIterable, Identifiable {
@@ -20,17 +24,29 @@ struct TripListView: View {
     /// 时间范围筛选
     enum TimeRange: String, CaseIterable, Identifiable {
         case all = "全部时间"
+        case today = "今天"
         case thisMonth = "本月"
         case last3Months = "近 3 个月"
         case thisYear = "今年"
+        /// 某一天（日期在 selectedDay），不出现在菜单的选项里，由「选择某一天…」进入
+        case day = "某一天"
         var id: String { rawValue }
 
-        func contains(_ date: Date) -> Bool {
+        static let menuCases: [TimeRange] = [.all, .today, .thisMonth, .last3Months, .thisYear]
+
+        /// 只看一天：列表按这一天显示
+        var isSingleDay: Bool { self == .today || self == .day }
+
+        func contains(_ date: Date, day: Date) -> Bool {
             let calendar = Calendar.current
             let now = Date()
             switch self {
             case .all:
                 return true
+            case .today:
+                return calendar.isDate(date, inSameDayAs: now)
+            case .day:
+                return calendar.isDate(date, inSameDayAs: day)
             case .thisMonth:
                 return calendar.isDate(date, equalTo: now, toGranularity: .month)
             case .last3Months:
@@ -44,7 +60,8 @@ struct TripListView: View {
 
     private var filteredTrips: [Trip] {
         trips.filter { trip in
-            (filterVehicleID == nil || trip.vehicleID == filterVehicleID) && timeRange.contains(trip.startDate)
+            (filterVehicleID == nil || trip.vehicleID == filterVehicleID)
+                && timeRange.contains(trip.startDate, day: selectedDay)
         }
     }
 
@@ -53,7 +70,18 @@ struct TripListView: View {
     }
 
     private var monthGroups: [TripMonthGroup] {
-        TripMonthGroup.group(filteredTrips)
+        if timeRange.isSingleDay {
+            // 只看一天：这一天的全部行程放在一张卡里
+            let day = timeRange == .today ? Date() : selectedDay
+            guard !filteredTrips.isEmpty else { return [] }
+            return [TripMonthGroup(id: "day", title: dayTitle(day), trips: filteredTrips)]
+        }
+        return TripMonthGroup.group(filteredTrips)
+    }
+
+    /// "11月28日 周六"
+    private func dayTitle(_ date: Date) -> String {
+        "\(Fmt.dateShort.string(from: date)) \(Fmt.weekday.string(from: date))"
     }
 
     var body: some View {
@@ -83,9 +111,15 @@ struct TripListView: View {
 
                     if filteredTrips.isEmpty {
                         Section {
-                            ContentUnavailableView("还没有行程",
-                                                   systemImage: "car.rear.road.lane",
-                                                   description: Text("连上 CarPlay 自动记录，或在首页手动开始。"))
+                            if timeRange.isSingleDay {
+                                ContentUnavailableView("这一天没有行程",
+                                                       systemImage: "car.rear.road.lane",
+                                                       description: Text(dayTitle(timeRange == .today ? Date() : selectedDay)))
+                            } else {
+                                ContentUnavailableView("还没有行程",
+                                                       systemImage: "car.rear.road.lane",
+                                                       description: Text("连上 CarPlay 自动记录，或在首页手动开始。"))
+                            }
                         }
                     }
 
@@ -129,15 +163,47 @@ struct TripListView: View {
                         }
                         .pickerStyle(.inline)
                         Picker("时间", selection: $timeRange) {
-                            ForEach(TimeRange.allCases) { range in
+                            ForEach(TimeRange.menuCases) { range in
                                 Text(range.rawValue).tag(range)
                             }
                         }
                         .pickerStyle(.inline)
+                        Button {
+                            pickedDay = timeRange == .day ? selectedDay : Date()
+                            showDayPicker = true
+                        } label: {
+                            if timeRange == .day {
+                                Label("某一天：\(dayTitle(selectedDay))", systemImage: "checkmark")
+                            } else {
+                                Label("选择某一天…", systemImage: "calendar")
+                            }
+                        }
                     } label: {
                         HeaderIcon(systemName: isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                     }
                 }
+            }
+            .sheet(isPresented: $showDayPicker) {
+                NavigationStack {
+                    DatePicker("日期", selection: $pickedDay, in: ...Date(), displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .padding(.horizontal)
+                        .navigationTitle("选择某一天")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("取消") { showDayPicker = false }
+                            }
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("完成") {
+                                    selectedDay = pickedDay
+                                    timeRange = .day
+                                    showDayPicker = false
+                                }
+                            }
+                        }
+                }
+                .presentationDetents([.large])
             }
         }
     }
@@ -190,7 +256,9 @@ struct TripListView: View {
                     TripDetailView(trip: trip)
                 } label: {
                     TripListRow(icon: "car.fill",
-                                title: "\(Fmt.dateShort.string(from: trip.startDate)) \(Fmt.weekday.string(from: trip.startDate)) \(Fmt.time.string(from: trip.startDate))",
+                                title: timeRange.isSingleDay
+                                    ? "\(Fmt.time.string(from: trip.startDate))–\(Fmt.time.string(from: trip.endDate))"
+                                    : "\(Fmt.dateShort.string(from: trip.startDate)) \(Fmt.weekday.string(from: trip.startDate)) \(Fmt.time.string(from: trip.startDate))",
                                 subtitle: trip.routeText ?? "均速 \(Fmt.speed(trip.averageMovingSpeed)) · 最高 \(Fmt.speed(trip.maxSpeed))",
                                 value: Fmt.distance(trip.distance),
                                 subValue: TripSpecFormat.duration(trip.duration))
