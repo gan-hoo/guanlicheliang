@@ -79,6 +79,57 @@ struct TripListView: View {
         return TripMonthGroup.group(filteredTrips)
     }
 
+    /// 筛选的时间范围，汇总卡的标题
+    private var periodTitle: String {
+        switch timeRange {
+        case .all: return "全部时间"
+        case .today: return "今天 · \(dayTitle(Date()))"
+        case .day: return dayTitle(selectedDay)
+        case .thisMonth: return "本月 · \(Fmt.monthTitle.string(from: Date()))"
+        case .last3Months: return "近 3 个月"
+        case .thisYear: return "今年 · \(Fmt.yearTitle.string(from: Date()))"
+        }
+    }
+
+    /// 汇总：筛选的时间范围内所有行程的合计
+    private var periodSummaryCard: some View {
+        let trips = filteredTrips
+        let distance = trips.reduce(0) { $0 + $1.distance }
+        let duration = trips.reduce(0) { $0 + $1.duration }
+        let moving = trips.reduce(0) { $0 + $1.movingDuration }
+        let fastest = trips.max { $0.maxSpeed < $1.maxSpeed }
+        var subtitle = "\(trips.count) 段 · \(Fmt.km(distance / 1000))"
+        if let filterVehicleID, let name = vehicleName(filterVehicleID) {
+            subtitle = "\(name) · " + subtitle
+        }
+        return TripListCard(icon: "sum", title: periodTitle, subtitle: subtitle) {
+            TripListRow(icon: "road.lanes",
+                        title: "总里程",
+                        subtitle: "\(trips.count) 段行程",
+                        value: Fmt.distance(distance),
+                        showsChevron: false)
+            TripListDivider()
+            TripListRow(icon: "clock",
+                        title: "总时长",
+                        subtitle: "行驶 \(TripSpecFormat.duration(moving))",
+                        value: TripSpecFormat.duration(duration),
+                        showsChevron: false)
+            TripListDivider()
+            TripListRow(icon: "speedometer",
+                        title: "平均速度",
+                        subtitle: "按行驶时长计算",
+                        value: Fmt.speed(moving > 0 ? distance / moving : 0),
+                        showsChevron: false)
+            TripListDivider()
+            TripListRow(icon: "bolt",
+                        title: "最高速度",
+                        subtitle: fastest.map { "\(Fmt.dateShort.string(from: $0.startDate)) \(Fmt.time.string(from: $0.startDate))" } ?? "—",
+                        value: Fmt.speed(fastest?.maxSpeed ?? 0),
+                        showsChevron: false)
+        }
+        .fontDesign(.default)
+    }
+
     /// "11月28日 周六"
     private func dayTitle(_ date: Date) -> String {
         "\(Fmt.dateShort.string(from: date)) \(Fmt.weekday.string(from: date))"
@@ -132,6 +183,14 @@ struct TripListView: View {
                         }
                         .pickerStyle(.segmented)
                         .listHeaderContainer()
+                    }
+
+                    if displayMode == .summary && !filteredTrips.isEmpty {
+                        Section {
+                        } header: {
+                            periodSummaryCard
+                                .listHeaderContainer()
+                        }
                     }
 
                     if displayMode == .all {
