@@ -107,6 +107,64 @@ enum TripExporter {
         return lines.joined(separator: "\n") + "\n"
     }
 
+    /// 合并导出时每段行程的名字用的时间
+    static func displayStamp(_ date: Date) -> String {
+        displayFormatter.string(from: date)
+    }
+
+    private static let displayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "yyyy年M月d日 HH:mm"
+        return f
+    }()
+
+    /// 多段行程合成一个 GPX：每段行程一个 <trk>
+    static func gpx(tracks: [(name: String, points: [TrackPoint])], name: String) -> String {
+        var lines: [String] = []
+        lines.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+        lines.append("<gpx version=\"1.1\" creator=\"行车记录\" xmlns=\"http://www.topografix.com/GPX/1/1\">")
+        lines.append("  <metadata>")
+        lines.append("    <name>\(xmlEscape(name))</name>")
+        if let first = tracks.first(where: { !$0.points.isEmpty })?.points.first {
+            lines.append("    <time>\(iso.string(from: first.timestamp))</time>")
+        }
+        lines.append("  </metadata>")
+        for track in tracks where !track.points.isEmpty {
+            lines.append("  <trk>")
+            lines.append("    <name>\(xmlEscape(track.name))</name>")
+            lines.append("    <trkseg>")
+            for p in track.points {
+                var line = "      <trkpt lat=\"\(String(format: "%.7f", p.latitude))\" lon=\"\(String(format: "%.7f", p.longitude))\">"
+                if p.hasValidAltitude {
+                    line += "<ele>\(String(format: "%.1f", p.altitude))</ele>"
+                }
+                line += "<time>\(iso.string(from: p.timestamp))</time></trkpt>"
+                lines.append(line)
+            }
+            lines.append("    </trkseg>")
+            lines.append("  </trk>")
+        }
+        lines.append("</gpx>")
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// 多段行程合成一个 CSV：和单段的列一样，前面多一列 trip（行程名）
+    static func csv(tracks: [(name: String, points: [TrackPoint])]) -> String {
+        var lines: [String] = []
+        for (index, track) in tracks.enumerated() {
+            let single = csv(points: track.points).split(separator: "\n", omittingEmptySubsequences: true)
+            for (row, line) in single.enumerated() {
+                if row == 0 {
+                    if index == 0 { lines.append("trip," + line) }
+                } else {
+                    lines.append("\"\(track.name)\"," + line)
+                }
+            }
+        }
+        return lines.joined(separator: "\n") + "\n"
+    }
+
     static func xmlEscape(_ s: String) -> String {
         s.replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")

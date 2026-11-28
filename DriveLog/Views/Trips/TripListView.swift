@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct TripListView: View {
     @Environment(\.modelContext) private var context
@@ -20,6 +21,10 @@ struct TripListView: View {
     @State private var routeAltitudeSamples: [ChartSample] = []
     @State private var routeChartKind = 0
     @State private var showRouteFullMap = false
+    /// 汇总里的合并导出、批量删除
+    @State private var exportingKind: SummaryExportKind?
+    @State private var shareFile: ShareFile?
+    @State private var showDeleteAllConfirm = false
 
     /// 分段控件：全部卡片 / 只看汇总卡（上面的玻璃卡片）
     enum DisplayMode: String, CaseIterable, Identifiable {
@@ -161,6 +166,121 @@ struct TripListView: View {
                                multiDay: !timeRange.isSingleDay)
             }
         }
+
+        Section {
+            Picker("归属车辆", selection: summaryVehicleBinding) {
+                if summaryVehicleSelection == "mixed" {
+                    Text("多辆车").tag("mixed")
+                }
+                Text("未指定").tag("none")
+                ForEach(vehicles) { vehicle in
+                    Text(vehicle.displayName).tag(vehicle.id.uuidString)
+                }
+            }
+        } header: {
+            Text("车辆")
+        } footer: {
+            Text("改这里会把这 \(trips.count) 段行程都归到所选车辆。")
+        }
+
+        Section("备注") {
+            // 每段行程各自的备注，按时间排列
+            ForEach(Array(trips.reversed())) { trip in
+                TripNoteRow(trip: trip,
+                            label: timeRange.isSingleDay
+                                ? Fmt.time.string(from: trip.startDate)
+                                : "\(Fmt.dateShort.string(from: trip.startDate)) \(Fmt.time.string(from: trip.startDate))")
+            }
+        }
+
+        Section {
+            ForEach(SummaryExportKind.allCases) { kind in
+                Button {
+                    exportSummary(kind)
+                } label: {
+                    HStack {
+                        Label(kind.title, systemImage: kind.icon)
+                        Spacer()
+                        if exportingKind == kind {
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(exportingKind != nil)
+            }
+        } header: {
+            Text("导出")
+        } footer: {
+            Text("把这 \(trips.count) 段行程合并成一个文件分享。每段行程单独的 GPX 和 CSV 仍在「文件」App → 我的 iPhone → 行车记录 → 行程轨迹。")
+        }
+
+        Section {
+            Button(role: .destructive) {
+                showDeleteAllConfirm = true
+            } label: {
+                Label("删除这些行程（\(trips.count) 段）", systemImage: "trash")
+            }
+        }
+    }
+
+    /// 汇总里「归属车辆」的当前值：都是同一辆车时显示那辆，否则显示「多辆车」
+    private var summaryVehicleSelection: String {
+        let ids = Set(filteredTrips.map(\.vehicleID))
+        guard ids.count == 1, let only = ids.first else { return "mixed" }
+        return only?.uuidString ?? "none"
+    }
+
+    private var summaryVehicleBinding: Binding<String> {
+        Binding(get: { summaryVehicleSelection },
+                set: { newValue in
+                    guard newValue != "mixed" else { return }
+                    let target: UUID? = newValue == "none" ? nil : UUID(uuidString: newValue)
+                    for trip in filteredTrips {
+                        trip.vehicleID = target
+                    }
+                    try? context.save()
+                })
+    }
+
+    /// 合并导出：每段行程一条轨迹（GPX 里一个 trk；CSV 第一列是行程开始时间）
+    private func exportSummary(_ kind: SummaryExportKind) {
+        let items = filteredTrips.reversed().map { ($0.id, $0.startDate) }
+        guard !items.isEmpty else { return }
+        exportingKind = kind
+        let title = periodTitle
+        let fileName = "行程汇总_\(title)_\(items.count)段"
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: " ", with: "")
+        Task {
+            let url = await Task.detached(priority: .userInitiated) { () -> URL? in
+                let tracks = items.map { item in
+                    (name: "行程 \(TripExporter.displayStamp(item.1))", points: TrackStore.readPoints(for: item.0))
+                }
+                let text: String
+                switch kind {
+                case .gpx: text = TripExporter.gpx(tracks: tracks, name: "行程汇总 \(title)")
+                case .csv: text = TripExporter.csv(tracks: tracks)
+                }
+                let url = AppPaths.temporaryDirectory.appendingPathComponent(fileName + "." + kind.fileExtension)
+                do {
+                    try text.write(to: url, atomically: true, encoding: .utf8)
+                    return url
+                } catch {
+                    return nil
+                }
+            }.value
+            exportingKind = nil
+            if let url {
+                shareFile = ShareFile(url: url)
+            }
+        }
+    }
+
+    /// 删除汇总里的所有行程（和详情页的删除一样，轨迹和导出文件一起删）
+    private func deleteSummaryTrips() {
+        for trip in filteredTrips {
+            TripService.delete(trip, context: context)
+        }
     }
 
     /// "11月28日 周六"
@@ -292,6 +412,18 @@ struct TripListView: View {
                         }
                 }
                 .presentationDetents([.large])
+            }
+            .sheet(item: $shareFile) { file in
+                ActivityView(items: [file.url])
+                    .presentationDetents([.medium, .large])
+            }
+            .confirmationDialog("删除这 \(filteredTrips.count) 段行程？", isPresented: $showDeleteAllConfirm, titleVisibility: .visible) {
+                Button("删除", role: .destructive) {
+                    deleteSummaryTrips()
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("\(periodTitle)的所有行程会被删除，轨迹和导出的 GPX / CSV 文件也会一起删除。")
             }
             .fullScreenCover(isPresented: $showRouteFullMap) {
                 FullScreenTripMap(segments: routeSegments,
@@ -582,5 +714,60 @@ struct SummaryChip: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
         .background(Capsule().fill(tint.opacity(0.12)))
+    }
+}
+
+/// 汇总里的合并导出格式
+enum SummaryExportKind: String, CaseIterable, Identifiable {
+    case gpx
+    case csv
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .gpx: return "分享 GPX"
+        case .csv: return "分享原始 CSV"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .gpx: return "square.and.arrow.up"
+        case .csv: return "tablecells"
+        }
+    }
+
+    var fileExtension: String { rawValue }
+}
+
+struct ShareFile: Identifiable {
+    let url: URL
+    var id: String { url.path }
+}
+
+/// 系统分享面板
+struct ActivityView: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+/// 汇总里一段行程的备注（直接改这段行程的备注）
+struct TripNoteRow: View {
+    @Bindable var trip: Trip
+    let label: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(label)
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+            TextField("添加备注", text: $trip.notes, axis: .vertical)
+                .lineLimit(1...5)
+        }
     }
 }
