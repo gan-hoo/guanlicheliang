@@ -151,13 +151,15 @@ struct TripDetailView: View {
         } else {
             TripMapView(segments: segments, start: trip.startCoordinate, end: trip.endCoordinate)
                 .overlay(alignment: .topTrailing) {
+                    // 玻璃不接管触摸（interactive 的玻璃会吃掉点击），整个圆都能点
                     Button {
                         showFullMap = true
                     } label: {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
                             .font(.body.weight(.semibold))
                             .frame(width: 40, height: 40)
-                            .glassCircle()
+                            .glassCircle(interactive: false)
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
                     .padding(10)

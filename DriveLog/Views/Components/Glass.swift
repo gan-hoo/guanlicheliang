@@ -52,9 +52,10 @@ extension View {
 
     /// 玻璃圆形按钮（地图上的展开按钮等）
     @ViewBuilder
-    func glassCircle(tint: Color? = nil) -> some View {
+    /// interactive = false：只要玻璃外观，不接管触摸（放在 Button 里、地图上时用，避免点了没反应）
+    func glassCircle(tint: Color? = nil, interactive: Bool = true) -> some View {
         if #available(iOS 26.0, *) {
-            self.glassEffect(GlassStyle.make(tint: tint, interactive: true), in: .circle)
+            self.glassEffect(GlassStyle.make(tint: tint, interactive: interactive), in: .circle)
         } else {
             self.background(.regularMaterial, in: Circle())
         }
