@@ -49,6 +49,8 @@ struct ChartSample: Identifiable {
     let id: Int
     let date: Date
     let value: Double
+    /// 多段行程画在一张图里时，每段一条线（行程之间不连线）
+    var series: Int = 0
 }
 
 enum TrackAnalysis {

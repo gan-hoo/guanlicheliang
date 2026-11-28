@@ -10,6 +10,12 @@ struct TrackChartView: View {
     var includesZero: Bool = true
     /// 从下到上的渐变色（速度曲线用速度区间配色）
     var gradientColors: [Color]? = nil
+    /// 跨多天（汇总）：横轴显示日期
+    var multiDay: Bool = false
+
+    private var axisFormat: Date.FormatStyle {
+        multiDay ? Date.FormatStyle().month(.defaultDigits).day() : Date.FormatStyle().hour().minute()
+    }
 
     private var lineStyle: LinearGradient {
         LinearGradient(colors: gradientColors ?? [color, color], startPoint: .bottom, endPoint: .top)
@@ -31,14 +37,17 @@ struct TrackChartView: View {
                 if showsArea {
                     AreaMark(
                         x: .value("时间", sample.date),
-                        y: .value(unit, sample.value)
+                        y: .value(unit, sample.value),
+                        series: .value("行程", sample.series),
+                        stacking: .unstacked
                     )
                     .foregroundStyle(areaStyle)
                     .interpolationMethod(.monotone)
                 }
                 LineMark(
                     x: .value("时间", sample.date),
-                    y: .value(unit, sample.value)
+                    y: .value(unit, sample.value),
+                    series: .value("行程", sample.series)
                 )
                 .foregroundStyle(lineStyle)
                 .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
@@ -48,7 +57,7 @@ struct TrackChartView: View {
             .chartXAxis {
                 AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                     AxisGridLine()
-                    AxisValueLabel(format: .dateTime.hour().minute())
+                    AxisValueLabel(format: axisFormat)
                 }
             }
             .chartYAxis {

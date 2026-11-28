@@ -79,8 +79,6 @@ struct TripListRow: View {
     let subtitle: String
     let value: String
     var subValue: String? = nil
-    /// 不能点的行（例如汇总数字）不显示箭头
-    var showsChevron: Bool = true
 
     var body: some View {
         HStack(spacing: 12) {
@@ -116,11 +114,9 @@ struct TripListRow: View {
                         .lineLimit(1)
                 }
             }
-            if showsChevron {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(TripSpec.chevron)
-            }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(TripSpec.chevron)
         }
         .padding(.vertical, 12)
         .padding(.horizontal, TripSpec.horizontalPadding)

@@ -16,6 +16,9 @@ struct TripListView: View {
     /// 汇总卡里的路线（筛选时间内所有行程）
     @State private var routeSegments: [SpeedSegment] = []
     @State private var routeLoading = false
+    @State private var routeSpeedSamples: [ChartSample] = []
+    @State private var routeAltitudeSamples: [ChartSample] = []
+    @State private var routeChartKind = 0
     @State private var showRouteFullMap = false
 
     /// 分段控件：全部卡片 / 只看汇总卡（上面的玻璃卡片）
@@ -95,44 +98,69 @@ struct TripListView: View {
         }
     }
 
-    /// 汇总：筛选的时间范围内所有行程的合计
-    private var periodSummaryCard: some View {
+    /// 汇总：和单段行程详情页一样的布局（地图、概要、曲线），数字是筛选时间内所有行程的合计
+    @ViewBuilder
+    private var periodSummarySections: some View {
         let trips = filteredTrips
+        let earliest = trips.min { $0.startDate < $1.startDate }
+        let latest = trips.max { $0.endDate < $1.endDate }
         let distance = trips.reduce(0) { $0 + $1.distance }
-        let duration = trips.reduce(0) { $0 + $1.duration }
         let moving = trips.reduce(0) { $0 + $1.movingDuration }
-        let fastest = trips.max { $0.maxSpeed < $1.maxSpeed }
-        var subtitle = "\(trips.count) 段 · \(Fmt.km(distance / 1000))"
-        if let filterVehicleID, let name = vehicleName(filterVehicleID) {
-            subtitle = "\(name) · " + subtitle
-        }
-        return TripListCard(icon: "sum", title: periodTitle, subtitle: subtitle) {
+
+        Section {
             routeMap
-            TripListRow(icon: "road.lanes",
-                        title: "总里程",
-                        subtitle: "\(trips.count) 段行程",
-                        value: Fmt.distance(distance),
-                        showsChevron: false)
-            TripListDivider()
-            TripListRow(icon: "clock",
-                        title: "总时长",
-                        subtitle: "行驶 \(TripSpecFormat.duration(moving))",
-                        value: TripSpecFormat.duration(duration),
-                        showsChevron: false)
-            TripListDivider()
-            TripListRow(icon: "speedometer",
-                        title: "平均速度",
-                        subtitle: "按行驶时长计算",
-                        value: Fmt.speed(moving > 0 ? distance / moving : 0),
-                        showsChevron: false)
-            TripListDivider()
-            TripListRow(icon: "bolt",
-                        title: "最高速度",
-                        subtitle: fastest.map { "\(Fmt.dateShort.string(from: $0.startDate)) \(Fmt.time.string(from: $0.startDate))" } ?? "—",
-                        value: Fmt.speed(fastest?.maxSpeed ?? 0),
-                        showsChevron: false)
+                .frame(height: 320)
+                .listRowInsets(EdgeInsets())
+        } header: {
+            Text(periodTitle)
         }
-        .fontDesign(.default)
+
+        Section("概要") {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                StatTile(title: "距离", value: Fmt.distance(distance), systemImage: "road.lanes", tint: Theme.distance)
+                StatTile(title: "总时长", value: Fmt.duration(trips.reduce(0) { $0 + $1.duration }), systemImage: "clock.fill", tint: Theme.duration)
+                StatTile(title: "行驶时长", value: Fmt.duration(moving), systemImage: "steeringwheel", tint: Theme.duration)
+                StatTile(title: "行驶均速", value: Fmt.speed(moving > 0 ? distance / moving : 0), systemImage: "speedometer", tint: Theme.speed)
+                StatTile(title: "最高速度", value: Fmt.speed(trips.map(\.maxSpeed).max() ?? 0), systemImage: "bolt.fill", tint: Theme.maxSpeed)
+                StatTile(title: "累计爬升", value: "\(Int(trips.reduce(0) { $0 + $1.elevationGain }.rounded())) m", systemImage: "arrow.up.right", tint: Theme.altitude)
+                StatTile(title: "最低海拔", value: Fmt.altitude(trips.compactMap(\.minAltitude).min()), systemImage: "arrow.down.to.line", tint: Theme.altitude)
+                StatTile(title: "最高海拔", value: Fmt.altitude(trips.compactMap(\.maxAltitude).max()), systemImage: "mountain.2.fill", tint: Theme.altitude)
+            }
+            .padding(.vertical, 4)
+            if let earliest {
+                InfoRow(title: "开始", value: Fmt.dateTimeFull.string(from: earliest.startDate))
+            }
+            if let latest {
+                InfoRow(title: "结束", value: Fmt.dateTimeFull.string(from: latest.endDate))
+            }
+            if let start = earliest?.startAddress, !start.isEmpty {
+                InfoRow(title: "起点", value: start)
+            }
+            if let end = latest?.endAddress, !end.isEmpty {
+                InfoRow(title: "终点", value: end)
+            }
+            InfoRow(title: "GPS 点数", value: "\(trips.reduce(0) { $0 + $1.pointCount })")
+        }
+
+        Section("曲线") {
+            Picker("曲线", selection: $routeChartKind) {
+                Text("速度").tag(0)
+                Text("海拔").tag(1)
+            }
+            .pickerStyle(.segmented)
+            if routeLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 200)
+            } else if routeChartKind == 0 {
+                TrackChartView(samples: routeSpeedSamples, unit: "km/h", color: Theme.speed,
+                               gradientColors: SpeedBand.allCases.map(\.color),
+                               multiDay: !timeRange.isSingleDay)
+            } else {
+                TrackChartView(samples: routeAltitudeSamples, unit: "m", color: Theme.altitude,
+                               showsArea: false, includesZero: false,
+                               multiDay: !timeRange.isSingleDay)
+            }
+        }
     }
 
     /// "11月28日 周六"
@@ -191,11 +219,7 @@ struct TripListView: View {
                     }
 
                     if displayMode == .summary && !filteredTrips.isEmpty {
-                        Section {
-                        } header: {
-                            periodSummaryCard
-                                .listHeaderContainer()
-                        }
+                        periodSummarySections
                     }
 
                     if displayMode == .all {
@@ -302,16 +326,29 @@ struct TripListView: View {
             return
         }
         routeSegments = []
+        routeSpeedSamples = []
+        routeAltitudeSamples = []
         routeLoading = true
         // 从早到晚
         let items = trips.reversed().map { ($0.id, SpeedBand.band(forKmh: $0.averageMovingSpeed * 3.6)) }
         let perTripColors = items.count > 30
         let maxPoints = max(30, 6000 / items.count)
-        let result = await Task.detached(priority: .userInitiated) { () -> [SpeedSegment] in
+        let maxSamples = max(20, 600 / items.count)
+        let result = await Task.detached(priority: .userInitiated) { () -> ([SpeedSegment], [ChartSample], [ChartSample]) in
             var all: [SpeedSegment] = []
-            for (id, averageBand) in items {
+            var speeds: [ChartSample] = []
+            var altitudes: [ChartSample] = []
+            for (index, item) in items.enumerated() {
+                let (id, averageBand) = item
                 if Task.isCancelled { break }
                 let points = TrackStore.readPoints(for: id)
+                // 曲线：每段行程单独一条线（series），行程之间不连线
+                for sample in TrackAnalysis.speedSamples(for: points, maxCount: maxSamples) {
+                    speeds.append(ChartSample(id: speeds.count, date: sample.date, value: sample.value, series: index))
+                }
+                for sample in TrackAnalysis.altitudeSamples(for: points, maxCount: maxSamples) {
+                    altitudes.append(ChartSample(id: altitudes.count, date: sample.date, value: sample.value, series: index))
+                }
                 for segment in TrackAnalysis.segments(for: points, maxPoints: maxPoints) {
                     if perTripColors, let last = all.last, last.band == averageBand,
                        last.coordinates.last.map({ $0.latitude == segment.coordinates.first?.latitude && $0.longitude == segment.coordinates.first?.longitude }) == true {
@@ -325,14 +362,16 @@ struct TripListView: View {
                     }
                 }
             }
-            return all
+            return (all, speeds, altitudes)
         }.value
         guard !Task.isCancelled else { return }
-        routeSegments = result
+        routeSegments = result.0
+        routeSpeedSamples = result.1
+        routeAltitudeSamples = result.2
         routeLoading = false
     }
 
-    /// 汇总卡里的地图
+    /// 汇总里的地图（和行程详情页一样）
     @ViewBuilder
     private var routeMap: some View {
         Group {
@@ -351,8 +390,7 @@ struct TripListView: View {
             } else {
                 TripMapView(segments: routeSegments,
                             start: filteredTrips.last?.startCoordinate,
-                            end: filteredTrips.first?.endCoordinate,
-                            lineWidth: 4)
+                            end: filteredTrips.first?.endCoordinate)
                     .id(routeKey)
                     .overlay(alignment: .topTrailing) {
                         Button {
@@ -376,10 +414,6 @@ struct TripListView: View {
                     }
             }
         }
-        .frame(height: 280)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .padding(.horizontal, TripSpec.horizontalPadding)
-        .padding(.bottom, 4)
     }
 
     private var summaryHeader: some View {
