@@ -13,6 +13,10 @@ struct TripListView: View {
     @State private var selectedDay = Date()
     @State private var showDayPicker = false
     @State private var pickedDay = Date()
+    /// 汇总卡里的路线（筛选时间内所有行程）
+    @State private var routeSegments: [SpeedSegment] = []
+    @State private var routeLoading = false
+    @State private var showRouteFullMap = false
 
     /// 分段控件：全部卡片 / 只看汇总卡（上面的玻璃卡片）
     enum DisplayMode: String, CaseIterable, Identifiable {
@@ -103,6 +107,7 @@ struct TripListView: View {
             subtitle = "\(name) · " + subtitle
         }
         return TripListCard(icon: "sum", title: periodTitle, subtitle: subtitle) {
+            routeMap
             TripListRow(icon: "road.lanes",
                         title: "总里程",
                         subtitle: "\(trips.count) 段行程",
@@ -264,7 +269,117 @@ struct TripListView: View {
                 }
                 .presentationDetents([.large])
             }
+            .fullScreenCover(isPresented: $showRouteFullMap) {
+                FullScreenTripMap(segments: routeSegments,
+                                  start: filteredTrips.last?.startCoordinate,
+                                  end: filteredTrips.first?.endCoordinate)
+            }
+            .task(id: routeKey) {
+                await loadRoutes()
+            }
         }
+    }
+
+    /// 筛选条件或行程变化时重新加载汇总路线
+    private var routeKey: String {
+        guard displayMode == .summary else { return "off" }
+        let trips = filteredTrips
+        return [timeRange.rawValue,
+                String(selectedDay.timeIntervalSince1970),
+                filterVehicleID?.uuidString ?? "",
+                String(trips.count),
+                trips.first?.id.uuidString ?? "",
+                trips.last?.id.uuidString ?? ""].joined(separator: "|")
+    }
+
+    /// 读取筛选时间内所有行程的轨迹，合成一张地图。
+    /// 行程不多时按每个点的速度上色（和行程详情一样）；超过 30 段时每段行程按平均速度一种颜色，避免地图太卡。
+    private func loadRoutes() async {
+        guard displayMode == .summary else { return }
+        let trips = filteredTrips
+        guard !trips.isEmpty else {
+            routeSegments = []
+            return
+        }
+        routeSegments = []
+        routeLoading = true
+        // 从早到晚
+        let items = trips.reversed().map { ($0.id, SpeedBand.band(forKmh: $0.averageMovingSpeed * 3.6)) }
+        let perTripColors = items.count > 30
+        let maxPoints = max(30, 6000 / items.count)
+        let result = await Task.detached(priority: .userInitiated) { () -> [SpeedSegment] in
+            var all: [SpeedSegment] = []
+            for (id, averageBand) in items {
+                if Task.isCancelled { break }
+                let points = TrackStore.readPoints(for: id)
+                for segment in TrackAnalysis.segments(for: points, maxPoints: maxPoints) {
+                    if perTripColors, let last = all.last, last.band == averageBand,
+                       last.coordinates.last.map({ $0.latitude == segment.coordinates.first?.latitude && $0.longitude == segment.coordinates.first?.longitude }) == true {
+                        // 同一段行程按平均速度一种颜色：把相邻的折线接起来，减少地图上的折线数量
+                        all[all.count - 1] = SpeedSegment(id: last.id, band: averageBand,
+                                                          coordinates: last.coordinates + segment.coordinates.dropFirst())
+                    } else {
+                        all.append(SpeedSegment(id: all.count,
+                                                band: perTripColors ? averageBand : segment.band,
+                                                coordinates: segment.coordinates))
+                    }
+                }
+            }
+            return all
+        }.value
+        guard !Task.isCancelled else { return }
+        routeSegments = result
+        routeLoading = false
+    }
+
+    /// 汇总卡里的地图
+    @ViewBuilder
+    private var routeMap: some View {
+        Group {
+            if routeLoading && routeSegments.isEmpty {
+                ZStack {
+                    Color(uiColor: .tertiarySystemFill)
+                    ProgressView()
+                }
+            } else if routeSegments.isEmpty {
+                ZStack {
+                    Color(uiColor: .tertiarySystemFill)
+                    Text("没有轨迹数据")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                TripMapView(segments: routeSegments,
+                            start: filteredTrips.last?.startCoordinate,
+                            end: filteredTrips.first?.endCoordinate,
+                            lineWidth: 4)
+                    .id(routeKey)
+                    .overlay(alignment: .topTrailing) {
+                        Button {
+                            showRouteFullMap = true
+                        } label: {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                .font(.body.weight(.semibold))
+                                .frame(width: 40, height: 40)
+                                .glassCircle(interactive: false)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(10)
+                    }
+                    .overlay(alignment: .bottom) {
+                        SpeedLegendView()
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .glassCapsule()
+                            .padding(10)
+                    }
+            }
+        }
+        .frame(height: 280)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, TripSpec.horizontalPadding)
+        .padding(.bottom, 4)
     }
 
     private var summaryHeader: some View {
